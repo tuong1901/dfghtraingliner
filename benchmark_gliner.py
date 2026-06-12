@@ -554,7 +554,7 @@ def run_single_gliner_benchmark(
             model, val_samples, entity_types,
             threshold=eval_threshold,
             batch_size=eval_batch,
-            ndcg_k=ndcg_k,
+            ndcg_ks=[ndcg_k],
             low_threshold=low_threshold,
         )
 
@@ -647,7 +647,7 @@ def run_single_gliner_benchmark(
             ft_model, val_samples, entity_types,
             threshold=eval_threshold,
             batch_size=eval_batch,
-            ndcg_k=ndcg_k,
+            ndcg_ks=[ndcg_k],
             low_threshold=low_threshold,
         )
 
@@ -819,7 +819,7 @@ def run_best_model_full_pipeline(
                 model, val_samples, entity_types,
                 threshold=thr,
                 batch_size=eval_batch,
-                ndcg_k=ndcg_k,
+                ndcg_ks=[ndcg_k],
                 low_threshold=low_threshold,
             )
             threshold_results.append((thr, m))

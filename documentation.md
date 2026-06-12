@@ -1,4 +1,4 @@
-# Tài liệu thư mục `d:\OCR\New_folder\train`
+# Tài liệu thư mục `c:\Users\loiha\Videos\dfghtraingliner`
 
 ## Tổng quan
 Thư mục này chứa toàn bộ code training và benchmark cho **2 model**:
@@ -269,3 +269,8 @@ train/
 JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 - **128 token đầu**: tags, job title, mô tả chính
 - **384 token cuối**: yêu cầu kinh nghiệm, học vấn (key để dự đoán level)
+
+---
+
+### Lịch sử cập nhật tài liệu và mã nguồn
+- **2026-06-12**: Sửa lỗi `TypeError: evaluate_gliner() got an unexpected keyword argument 'ndcg_k'` trong [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py) bằng cách đổi tham số truyền vào từ `ndcg_k=ndcg_k` thành `ndcg_ks=[ndcg_k]` để khớp với chữ ký của hàm `evaluate_gliner`.

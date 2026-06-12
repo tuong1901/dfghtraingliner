@@ -50,31 +50,15 @@ def prepare_gliner_samples(
 ) -> List[Dict[str, Any]]:
     """
     Chuyển đổi dữ liệu từ cleaned_dataset.json sang format mà
-    GLiNER trainer yêu cầu.
-
-    GLiNER format:
-    {
-        "tokenized_text": [...],  # Sẽ được tokenize trong trainer
-        "ner": [[start_char, end_char, "LABEL"], ...]
-    }
-
-    Thực ra GLiNER dùng format:
-    {
-        "text": "raw text...",
-        "entities": [{"start": int, "end": int, "label": str}, ...]
-    }
-
-    Args:
-        data        : List các dict từ dataset
-        entity_types: Các loại entity được train (filter các label khác)
-        max_length  : Giới hạn độ dài text (ký tự) để tránh OOM
-
-    Returns:
-        List các dict theo GLiNER format
+    GLiNER trainer yêu cầu. Hỗ trợ cả GLiNER v0.1.x và v0.2.x.
     """
+    import re
     valid_types = set(t.upper() for t in entity_types)
     samples = []
     skipped = 0
+    
+    # Regex để tokenize tương tự WordsSplitter của GLiNER
+    token_pattern = re.compile(r'\w+|[^\w\s]')
     
     for item in data:
         text = item.get("text", "").strip()
@@ -84,28 +68,35 @@ def prepare_gliner_samples(
             skipped += 1
             continue
         
-        # Cắt text nếu quá dài (theo ký tự, xấp xỉ)
-        # GLiNER tokenizer sẽ xử lý chính xác hơn
-        if len(text) > max_length * 4:  # Ước lượng ~4 ký tự/token
+        # Cắt text nếu quá dài
+        if len(text) > max_length * 4:
             text = text[:max_length * 4]
         
+        # Tokenize và lấy offsets
+        tokens = []
+        start_offsets = []
+        end_offsets = []
+        for match in token_pattern.finditer(text):
+            tokens.append(match.group())
+            start_offsets.append(match.start())
+            end_offsets.append(match.end())
+        
         # Lọc entities hợp lệ
-        entities = []
+        entities = [] # cho GLiNER 0.1.x
+        ner = []      # cho GLiNER 0.2.x
+        
         for span in labels:
             if len(span) != 3:
                 continue
             start, end, label = span
             label_upper = str(label).upper()
             
-            # Chỉ lấy các label trong entity_types
             if label_upper not in valid_types:
                 continue
             
-            # Kiểm tra bounds
             if start < 0 or end > len(text) or start >= end:
                 continue
             
-            # Kiểm tra text tại span không rỗng
             span_text = text[start:end].strip()
             if not span_text:
                 continue
@@ -115,11 +106,30 @@ def prepare_gliner_samples(
                 "end": end,
                 "label": label_upper
             })
+            
+            # Map char offsets sang token indices (inclusive)
+            start_token_idx = None
+            end_token_idx = None
+            
+            for idx, s_offset in enumerate(start_offsets):
+                if s_offset >= start:
+                    start_token_idx = idx
+                    break
+            
+            for idx, e_offset in enumerate(end_offsets):
+                if e_offset <= end:
+                    end_token_idx = idx
+                else:
+                    break
+            
+            if start_token_idx is not None and end_token_idx is not None and start_token_idx <= end_token_idx:
+                ner.append([start_token_idx, end_token_idx, label_upper])
         
         samples.append({
             "text": text,
+            "tokenized_text": tokens,
             "entities": entities,
-            "ner": [[ent["start"], ent["end"], ent["label"]] for ent in entities]
+            "ner": ner,
         })
     
     if skipped > 0:
@@ -218,14 +228,7 @@ def train_gliner(cfg: dict):
     output_dir = gcfg.get("output_dir", "./outputs/gliner")
     os.makedirs(output_dir, exist_ok=True)
     
-    # Compile model nếu có thể (PyTorch 2.0+)
-    try:
-        import torch
-        if hasattr(torch, "compile"):
-            print("[GLiNER] Đang compile model (torch.compile)...")
-            model = torch.compile(model)
-    except Exception:
-        pass
+    # Bỏ torch.compile để tránh lỗi compiler cl/g++ trên các môi trường thiếu MSVC/GCC
     
     training_args = TrainingArguments(
         output_dir=output_dir,
