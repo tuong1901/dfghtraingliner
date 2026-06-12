@@ -119,6 +119,7 @@ def prepare_gliner_samples(
         samples.append({
             "text": text,
             "entities": entities,
+            "ner": [[ent["start"], ent["end"], ent["label"]] for ent in entities]
         })
     
     if skipped > 0:
@@ -130,6 +131,32 @@ def prepare_gliner_samples(
 # ----------------------------------------------------------------
 # Main training function
 # ----------------------------------------------------------------
+# Helper function to dynamically resolve DataCollator in GLiNER v0.1.x vs v0.2.x
+def get_gliner_data_collator(model):
+    """
+    Tạo data collator tương thích động với phiên bản GLiNER được cài đặt.
+    """
+    try:
+        from gliner.data_processing.collator import DataCollator
+        return DataCollator(model.config, data_processor=model.data_processor, prepare_labels=True)
+    except ImportError:
+        import gliner.data_processing.collator as collator_mod
+        processor_class_name = model.data_processor.__class__.__name__
+        if "Span" in processor_class_name:
+            for class_name in ["SpanDataCollator", "BiEncoderSpanDataCollator"]:
+                if hasattr(collator_mod, class_name):
+                    return getattr(collator_mod, class_name)(model.config, data_processor=model.data_processor, prepare_labels=True)
+        elif "Token" in processor_class_name:
+            for class_name in ["TokenDataCollator", "BiEncoderTokenDataCollator"]:
+                if hasattr(collator_mod, class_name):
+                    return getattr(collator_mod, class_name)(model.config, data_processor=model.data_processor, prepare_labels=True)
+        
+        for class_name in ["SpanDataCollator", "BiEncoderSpanDataCollator", "DataCollator"]:
+            if hasattr(collator_mod, class_name):
+                return getattr(collator_mod, class_name)(model.config, data_processor=model.data_processor, prepare_labels=True)
+        raise ImportError("Không tìm thấy class DataCollator phù hợp trong gliner.data_processing.collator")
+
+
 def train_gliner(cfg: dict):
     """
     Train GLiNER model dựa trên config.
@@ -150,7 +177,6 @@ def train_gliner(cfg: dict):
     try:
         from gliner import GLiNER
         from gliner.training import Trainer, TrainingArguments
-        from gliner.data_processing.collator import DataCollator
     except ImportError as e:
         print(f"\n[LỖI] Chưa cài gliner hoặc lỗi import: {e}")
         print("Chạy lệnh sau:")
@@ -212,7 +238,7 @@ def train_gliner(cfg: dict):
         per_device_train_batch_size=gcfg.get("train_batch_size", 8),
         per_device_eval_batch_size=gcfg.get("eval_batch_size", 8),
         num_train_epochs=gcfg.get("num_epochs", 5),
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         save_strategy="steps",
         save_steps=gcfg.get("save_steps", 500),
         eval_steps=gcfg.get("eval_steps", 500),
@@ -244,12 +270,7 @@ def train_gliner(cfg: dict):
         args=training_args,
         train_dataset=train_samples,
         eval_dataset=val_samples,
-        tokenizer=model.data_processor.transformer_tokenizer,
-        data_collator=DataCollator(
-            model.config,
-            data_processor=model.data_processor,
-            prepare_labels=True,
-        ),
+        data_collator=get_gliner_data_collator(model),
     )
     
     trainer.train()

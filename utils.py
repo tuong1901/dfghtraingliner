@@ -90,14 +90,23 @@ def load_dataset(
     data = [d for d in data if d.get("text", "").strip()]
     print(f"[Data] Sau khi lọc sample không có text: {len(data)}")
     
-    # Lọc sample có level không hợp lệ (nếu cần)
+    # Lọc và map level
     if level_labels is not None:
         valid_levels = set(lv.upper() for lv in level_labels)
-        data = [
-            d for d in data
-            if str(d.get("level", "")).upper() in valid_levels
-        ]
-        print(f"[Data] Sau khi lọc level không hợp lệ: {len(data)}")
+        has_unknown = "UNKNOWN" in valid_levels
+        
+        filtered_data = []
+        for d in data:
+            d_copy = d.copy()
+            lvl = str(d_copy.get("level", "")).upper().strip()
+            if lvl not in valid_levels:
+                if has_unknown:
+                    d_copy["level"] = "UNKNOWN"
+                else:
+                    continue
+            filtered_data.append(d_copy)
+        data = filtered_data
+        print(f"[Data] Sau khi lọc và map level sang UNKNOWN: {len(data)}")
     
     # Giới hạn số sample
     if max_samples is not None and max_samples < len(data):

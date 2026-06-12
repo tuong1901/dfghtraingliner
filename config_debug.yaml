@@ -49,15 +49,10 @@ gliner:
 classifier:
   model_name: "distilbert-base-uncased" # Nhẹ nhất
   level_labels:
-    - "INTERN"
     - "FRESHER"
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
-    - "LEAD"
-    - "MANAGER"
-    - "DIRECTOR"
-    - "EXPERT"
     - "UNKNOWN"
 
   # Hyperparameters

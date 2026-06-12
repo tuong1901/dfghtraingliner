@@ -396,6 +396,32 @@ def _print_eval_metrics(label: str, metrics: Dict, entity_types: List[str], ndcg
 # ================================================================
 # Benchmark 1 model: Baseline → Fine-tune → Post-eval
 # ================================================================
+# Helper function to dynamically resolve DataCollator in GLiNER v0.1.x vs v0.2.x
+def get_gliner_data_collator(model):
+    """
+    Tạo data collator tương thích động với phiên bản GLiNER được cài đặt.
+    """
+    try:
+        from gliner.data_processing.collator import DataCollator
+        return DataCollator(model.config, data_processor=model.data_processor, prepare_labels=True)
+    except ImportError:
+        import gliner.data_processing.collator as collator_mod
+        processor_class_name = model.data_processor.__class__.__name__
+        if "Span" in processor_class_name:
+            for class_name in ["SpanDataCollator", "BiEncoderSpanDataCollator"]:
+                if hasattr(collator_mod, class_name):
+                    return getattr(collator_mod, class_name)(model.config, data_processor=model.data_processor, prepare_labels=True)
+        elif "Token" in processor_class_name:
+            for class_name in ["TokenDataCollator", "BiEncoderTokenDataCollator"]:
+                if hasattr(collator_mod, class_name):
+                    return getattr(collator_mod, class_name)(model.config, data_processor=model.data_processor, prepare_labels=True)
+        
+        for class_name in ["SpanDataCollator", "BiEncoderSpanDataCollator", "DataCollator"]:
+            if hasattr(collator_mod, class_name):
+                return getattr(collator_mod, class_name)(model.config, data_processor=model.data_processor, prepare_labels=True)
+        raise ImportError("Không tìm thấy class DataCollator phù hợp trong gliner.data_processing.collator")
+
+
 def run_single_gliner_benchmark(
     model_cfg: dict,
     benchmark_cfg: dict,
@@ -484,7 +510,6 @@ def run_single_gliner_benchmark(
     try:
         from gliner import GLiNER
         from gliner.training import Trainer, TrainingArguments
-        from gliner.data_processing.collator import DataCollator
         import torch
 
         set_seed(seed)
@@ -573,7 +598,7 @@ def run_single_gliner_benchmark(
             per_device_train_batch_size=train_batch,
             per_device_eval_batch_size=eval_batch,
             num_train_epochs=num_epochs,
-            evaluation_strategy="epoch",
+            eval_strategy="epoch",
             save_strategy="epoch",
             load_best_model_at_end=True,
             metric_for_best_model="eval_loss",
@@ -586,18 +611,13 @@ def run_single_gliner_benchmark(
             report_to="none",
         )
 
-        data_collator = DataCollator(
-            model.config,
-            data_processor=model.data_processor,
-            prepare_labels=True,
-        )
+        data_collator = get_gliner_data_collator(model)
 
         trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=train_samples,
             eval_dataset=val_samples,
-            tokenizer=model.data_processor.transformer_tokenizer,
             data_collator=data_collator,
         )
 

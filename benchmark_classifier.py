@@ -174,6 +174,22 @@ def run_single_benchmark(
         )
         model = model.to(device)
 
+        # Tính class weights để xử lý mất cân bằng nhãn
+        print(f"[{model_display_name}] Tính class weights xử lý mất cân bằng...")
+        from sklearn.utils.class_weight import compute_class_weight
+        from torch import nn
+        train_labels = [s[1] for s in train_dataset.samples]
+        class_weights = torch.tensor(
+            compute_class_weight(
+                class_weight='balanced',
+                classes=np.arange(num_labels),
+                y=train_labels
+            ),
+            dtype=torch.float
+        ).to(device)
+        weights_dict = {level_labels[i]: round(class_weights[i].item(), 4) for i in range(num_labels)}
+        print(f"  Class weights: {weights_dict}")
+
         # Đếm số params
         n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"[{model_display_name}] Trainable params: {n_params:,}")
@@ -222,10 +238,12 @@ def run_single_benchmark(
 
                 optimizer.zero_grad()
 
+                loss_fct = nn.CrossEntropyLoss(weight=class_weights)
+
                 if use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = model(**kwargs)
-                        loss = outputs.loss
+                        loss = loss_fct(outputs.logits, labels_t)
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -233,7 +251,7 @@ def run_single_benchmark(
                     scaler.update()
                 else:
                     outputs = model(**kwargs)
-                    loss = outputs.loss
+                    loss = loss_fct(outputs.logits, labels_t)
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                     optimizer.step()

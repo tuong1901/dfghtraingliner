@@ -406,6 +406,20 @@ def train_classifier(cfg: dict):
     )
     model = model.to(device)
     
+    # Tính class weights để xử lý mất cân bằng nhãn
+    print("\n[Classifier] Tính class weights xử lý mất cân bằng...")
+    from sklearn.utils.class_weight import compute_class_weight
+    train_labels = [s[1] for s in train_dataset.samples]
+    class_weights = compute_class_weight(
+        class_weight='balanced',
+        classes=np.arange(num_labels),
+        y=train_labels
+    )
+    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
+    # Print weights beautifully
+    weights_dict = {level_labels[i]: round(class_weights[i].item(), 4) for i in range(num_labels)}
+    print(f"  Class weights: {weights_dict}")
+    
     # 6. Optimizer & Scheduler
     num_epochs = ccfg.get("num_epochs", 5)
     learning_rate = ccfg.get("learning_rate", 2e-5)
@@ -477,10 +491,12 @@ def train_classifier(cfg: dict):
             
             optimizer.zero_grad()
             
+            loss_fct = nn.CrossEntropyLoss(weight=class_weights)
+            
             if use_amp:
                 with torch.cuda.amp.autocast():
                     outputs = model(**kwargs)
-                    loss = outputs.loss
+                    loss = loss_fct(outputs.logits, labels)
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -488,7 +504,7 @@ def train_classifier(cfg: dict):
                 scaler.update()
             else:
                 outputs = model(**kwargs)
-                loss = outputs.loss
+                loss = loss_fct(outputs.logits, labels)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()

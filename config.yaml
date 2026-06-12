@@ -72,15 +72,10 @@ classifier:
 
   # Các nhãn level (phải khớp chính xác với giá trị trường "level" trong dataset)
   level_labels:
-    - "INTERN"
     - "FRESHER"
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
-    - "LEAD"
-    - "MANAGER"
-    - "DIRECTOR"
-    - "EXPERT"
     - "UNKNOWN"
 
   # Hyperparameters
@@ -128,15 +123,10 @@ benchmark:
 
   # Các nhãn level (phải giống với classifier.level_labels)
   level_labels:
-    - "INTERN"
     - "FRESHER"
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
-    - "LEAD"
-    - "MANAGER"
-    - "DIRECTOR"
-    - "EXPERT"
     - "UNKNOWN"
 
   # Danh sách các model sẽ được benchmark

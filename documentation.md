@@ -7,7 +7,7 @@ Thư mục này chứa toàn bộ code training và benchmark cho **2 model**:
    - **Đầu ra**: Spans `[start, end, label]` với label ∈ `{SKILL, EXPERIENCE}`
 2. **Level Classifier** – Phân loại cấp bậc công việc
    - **Đầu vào**: `text` (chuỗi Job Description thuần)
-   - **Đầu ra**: `level` ∈ `{INTERN, FRESHER, JUNIOR, MIDDLE, SENIOR, LEAD, MANAGER, DIRECTOR, EXPERT, UNKNOWN}`
+   - **Đầu ra**: `level` ∈ `{FRESHER, JUNIOR, MIDDLE, SENIOR, UNKNOWN}` (các lớp thiểu số khác như INTERN, LEAD, MANAGER, DIRECTOR, EXPERT tự động được map về UNKNOWN)
 
 Dataset đầu vào: `../cleaned_dataset.json`
 
@@ -89,7 +89,8 @@ File cấu hình tổng. **Chỉ cần chỉnh file này**, không cần sửa c
 
 **Hàm chính:**
 - **`prepare_gliner_samples(data, entity_types, max_length)`**: Chuyển `cleaned_dataset.json` → GLiNER format `{text, entities: [{start, end, label}]}`. Lọc tự động label không trong entity_types, kiểm tra bounds, bỏ span rỗng
-- **`train_gliner(cfg)`**: Load GLiNER từ HuggingFace, setup Trainer riêng của GLiNER, train với fp16 nếu có GPU, lưu final model
+- **`get_gliner_data_collator(model)`**: Tự động nhận diện phiên bản `gliner` (v0.1.x hay v0.2.x) để trả về class data collator thích hợp (`DataCollator`, `SpanDataCollator`, hoặc `BiEncoderSpanDataCollator`)
+- **`train_gliner(cfg)`**: Load GLiNER từ HuggingFace, setup Trainer riêng của GLiNER (dùng dynamic collator), train với fp16 nếu có GPU, lưu final model
 - **`quick_test_gliner(model_dir, entity_types)`**: Test nhanh 1 câu mẫu sau train
 
 **Output:** `./outputs/gliner/final_model/` + `entity_types.json`
@@ -114,9 +115,7 @@ File cấu hình tổng. **Chỉ cần chỉnh file này**, không cần sửa c
     - `"head"`: lấy max_length token đầu
     - `"tail"`: lấy max_length token cuối (bắt requirements)
     - `"head+tail"`: 128 đầu + phần cuối (tốt nhất, mặc định)
-- **`collate_fn(batch)`**: Gộp batch, handle token_type_ids (BERT có / RoBERTa không có)
-- **`evaluate(model, dataloader, device, level_labels)`**: Accuracy + weighted F1 + per-class report
-- **`train_classifier(cfg)`**: Training loop: AdamW + Linear scheduler + warmup + gradient clip + fp16 + best-model checkpoint theo F1
+- **`train_classifier(cfg)`**: Training loop với trọng số lớp (**Weighted CrossEntropyLoss** dùng `class_weights` từ training set) để giải quyết mất cân bằng dữ liệu. Tích hợp AdamW + Linear scheduler + warmup + best-model checkpoint.
 - **`quick_test_classifier(model_dir, level_labels)`**: Test 4 câu mẫu với levels khác nhau
 
 **Output:** `./outputs/classifier/best_model/` + `label_map.json`
@@ -197,7 +196,7 @@ outputs/benchmark_gliner/
 |-----|----------|
 | `load_config(config_path)` | Đọc YAML → dict |
 | `set_seed(seed)` | Fix random seed (Python, NumPy, PyTorch) |
-| `load_dataset(path, val_ratio, max_samples, seed, level_labels)` | Load JSON, lọc invalid, shuffle, split train/val |
+| `load_dataset(path, val_ratio, max_samples, seed, level_labels)` | Load JSON, lọc và gộp các level thiểu số không nằm trong config về `'UNKNOWN'`, split train/val |
 | `normalize_level(level_str, level_labels)` | Chuỗi level → index |
 | `format_time(seconds)` | Số giây → "Xh Ym Zs" |
 | `print_banner(title)` | In tiêu đề đẹp |
@@ -263,8 +262,8 @@ train/
 - ✅ `EXPERIENCE`: Số năm kinh nghiệm ("3+ years", "Minimum 5 years"...)
 - ❌ `MAJOR`: **Không train** – đã bỏ khỏi GLiNER entity_types
 
-### Classifier: Level Classes (10 lớp)
-`INTERN` → `FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `LEAD` → `MANAGER` → `DIRECTOR` → `EXPERT` → `UNKNOWN`
+### Classifier: Level Classes (5 lớp chính)
+`FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `UNKNOWN` (Các nhãn khác như `INTERN`, `LEAD`, `MANAGER`, `DIRECTOR`, `EXPERT` tự động được chuẩn hóa về `UNKNOWN` lúc load dataset).
 
 ### Truncation strategy
 JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
