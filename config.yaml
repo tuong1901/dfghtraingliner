@@ -1,0 +1,299 @@
+# ============================================================
+# CONFIG TỔNG - Chọn model nào sẽ train ở đây
+# ============================================================
+
+run:
+  train_gliner: true          # true = train GLiNER NER model
+  train_classifier: true      # true = train Level Classifier
+  run_benchmark: false        # true = benchmark nhiều Classifier (BERT/RoBERTa/...)
+  run_benchmark_gliner: false # true = benchmark nhiều GLiNER architecture
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  dataset_path: "../cleaned_dataset.json"   # Đường dẫn tới cleaned_dataset.json
+  val_ratio: 0.1                            # Tỉ lệ validation (10%)
+  max_samples: null                         # null = dùng toàn bộ, hoặc số nguyên để giới hạn
+
+# ============================================================
+# GLiNER CONFIG
+# Đầu vào : text (Job Description)
+# Đầu ra  : spans [start, end, label] với label ∈ {SKILL, EXPERIENCE}
+#
+# SKILL      : Kỹ năng kỹ thuật (Python, Docker, React...)
+# EXPERIENCE : Yêu cầu kinh nghiệm ("3+ years", "Minimum 5 years"...)
+# NOTE: Đã bỏ MAJOR - không train nhãn này trong GLiNER
+# ============================================================
+gliner:
+  # Model base để finetune (chọn 1 trong 2)
+  model_name: "urchade/gliner_small-v2.1"   # nhẹ hơn, train nhanh hơn
+  # model_name: "urchade/gliner_medium-v2.1" # nặng hơn, accuracy cao hơn
+
+  # Chỉ 2 entity types: SKILL và EXPERIENCE
+  entity_types:
+    - "SKILL"
+    - "EXPERIENCE"
+
+  # Hyperparameters
+  num_epochs: 5
+  train_batch_size: 8
+  eval_batch_size: 8
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 1024         # Độ dài tối đa token input
+  max_neg_type_ratio: 1    # Tỉ lệ negative entity type sampling
+
+  # Output
+  output_dir: "./outputs/gliner"
+  save_steps: 500
+  eval_steps: 500
+  logging_steps: 50
+
+  # Wandb (đặt null để tắt)
+  wandb_project: null      # "gliner-job-ner" hoặc null
+
+
+# ============================================================
+# LEVEL CLASSIFIER CONFIG
+# Đầu vào : text (Job Description, dạng chuỗi thuần)
+# Đầu ra  : level ∈ {INTERN, FRESHER, JUNIOR, MIDDLE, SENIOR,
+#                    LEAD, MANAGER, DIRECTOR, EXPERT, UNKNOWN}
+# ============================================================
+classifier:
+  # Model base để finetune (chọn 1 trong các option bên dưới)
+  model_name: "bert-base-uncased"
+  # model_name: "distilbert-base-uncased"           # Nhanh hơn, nhẹ hơn
+  # model_name: "roberta-base"                      # Thường tốt hơn BERT
+  # model_name: "microsoft/deberta-v3-small"        # Tốt nhất trong các model nhỏ
+  # model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Embedding-based
+
+  # Các nhãn level (phải khớp chính xác với giá trị trường "level" trong dataset)
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "LEAD"
+    - "MANAGER"
+    - "DIRECTOR"
+    - "EXPERT"
+    - "UNKNOWN"
+
+  # Hyperparameters
+  num_epochs: 5
+  train_batch_size: 16
+  eval_batch_size: 32
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 512          # Độ dài tối đa token input
+
+  # Truncation strategy cho text dài:
+  # "head"     : Lấy max_length token từ đầu text
+  # "tail"     : Lấy max_length token từ cuối text (bắt requirements)
+  # "head+tail": Lấy 128 đầu + phần cuối (TỐT NHẤT cho JD dài)
+  truncation_strategy: "head+tail"
+
+  # Output
+  output_dir: "./outputs/classifier"
+  save_steps: 500
+  eval_steps: 200
+  logging_steps: 50
+
+  # Wandb (đặt null để tắt)
+  wandb_project: null      # "level-classifier" hoặc null
+
+
+# ============================================================
+# BENCHMARK CONFIG
+# Chạy nhiều model architecture để so sánh hiệu năng.
+# Bật bằng: run.run_benchmark: true
+# Hoặc CLI: python train_master.py --benchmark
+#
+# Đầu vào : text (giống Classifier)
+# Đầu ra  : Bảng so sánh Accuracy / F1 / Training time
+# ============================================================
+benchmark:
+  output_dir: "./outputs/benchmark"
+
+  # Số epoch cho mỗi model khi benchmark (thường ít hơn train đầy đủ)
+  num_epochs: 3
+  max_length: 512
+  truncation_strategy: "head+tail"
+  logging_steps: 100
+
+  # Các nhãn level (phải giống với classifier.level_labels)
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "LEAD"
+    - "MANAGER"
+    - "DIRECTOR"
+    - "EXPERT"
+    - "UNKNOWN"
+
+  # Danh sách các model sẽ được benchmark
+  # Mỗi model có thể override các hyperparameter chung
+  models:
+    - name: "BERT-base"
+      model_name: "bert-base-uncased"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 2.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    - name: "DistilBERT"
+      model_name: "distilbert-base-uncased"
+      train_batch_size: 32     # Nhẹ hơn nên dùng batch lớn hơn
+      eval_batch_size: 64
+      learning_rate: 3.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    - name: "RoBERTa-base"
+      model_name: "roberta-base"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 2.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.06
+      enabled: true
+
+    - name: "DeBERTa-v3-small"
+      model_name: "microsoft/deberta-v3-small"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 1.5e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    - name: "ELECTRA-small"
+      model_name: "google/electra-small-discriminator"
+      train_batch_size: 32
+      eval_batch_size: 64
+      learning_rate: 3.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    - name: "PhoBERT-base"      # Thử Vietnamese BERT (nếu JD có tiếng Việt)
+      model_name: "vinai/phobert-base-v2"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 2.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: false            # Tắt mặc định, bật nếu dataset có nhiều tiếng Việt
+
+
+# ============================================================
+# BENCHMARK GLiNER CONFIG
+# So sánh các kiến trúc GLiNER khác nhau để chọn model tốt nhất cho JD NER.
+# Bật bằng: run.run_benchmark_gliner: true
+# Hoặc CLI: python train_master.py --benchmark-gliner
+#
+# Đầu vào : text (Job Description)
+# Đầu ra  : spans (SKILL, EXPERIENCE)
+# Metric   : F1 per entity type (exact span match, char-level)
+# ============================================================
+benchmark_gliner:
+  output_dir: "./outputs/benchmark_gliner"
+
+  # Entity types cần detect (đồng bộ với gliner.entity_types)
+  entity_types:
+    - "SKILL"
+    - "EXPERIENCE"
+
+  # Config chung cho tất cả model (model có thể override từng trường)
+  num_epochs: 3              # ít epoch để benchmark nhanh; tăng lên 5 cho final train
+  max_length: 1024           # JD dài, cần max_length cao. GLiNER dùng sliding window
+  train_batch_size: 8        # Small batch do model lớn (DeBERTa)
+  eval_batch_size: 8
+  learning_rate: 5.0e-5      # LR tốt cho GLiNER finetune
+  others_lr: 1.0e-5          # LR cho non-span layers (span_rep_layer, prompt_rep...)
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_neg_type_ratio: 1      # Negative type ratio = 1 (với 2 entity types là phù hợp)
+  gradient_accumulation_steps: 2  # Tích lũy gradient để effective batch = 16
+  # Metrics
+  eval_threshold: 0.5        # Ngưỡng confidence khi đánh giá F1
+  low_threshold: 0.1         # Ngưỡng thấp để thu candidates cho nDCG ranking
+  ndcg_ks:                   # Tính nDCG cho cả 2 giá trị K:
+    - 5                      #   nDCG@5  : ranking ở top gần (strict hơn)
+    - 10                     #   nDCG@10 : ranking phổ biến (loose hơn)
+  run_best_model_pipeline: true  # true = sau benchmark chạy full analysis cho model tốt nhất
+  logging_steps: 100
+  analyze_data: true         # true = in phân tích phân bố entity trước khi benchmark
+
+  # Danh sách các GLiNER variant được benchmark
+  # -----------------------------------------------------------
+  # Kiến trúc GLiNER:
+  #   Encoder (span-based): Bi-encoder, xử lý text + entity type song song
+  #   Token classifier được thay bằng span scorer dùng dot-product similarity
+  #   Phù hợp với SKILL (ngắn) và EXPERIENCE (trung bình)
+  #   GLiNER bản mới (v2.5) dùng DeBERTa-v3 encoder tốt hơn v2.1
+  # -----------------------------------------------------------
+  models:
+    - name: "GLiNER-Small-v2.1"
+      model_name: "urchade/gliner_small-v2.1"
+      # Encoder: DeBERTa-xsmall (22M params)
+      # Ưu: Nhanh nhất, RAM ít nhất
+      # Nhược: Accuracy thấp hơn so với medium/large
+      train_batch_size: 8
+      learning_rate: 5.0e-5
+      enabled: true
+
+    - name: "GLiNER-Medium-v2.1"
+      model_name: "urchade/gliner_medium-v2.1"
+      # Encoder: DeBERTa-base (86M params)
+      # Ưu: Cân bằng tốc độ/chất lượng, đây là lựa chọn recommend
+      train_batch_size: 8
+      learning_rate: 5.0e-5
+      enabled: true
+
+    - name: "GLiNER-Large-v2.1"
+      model_name: "urchade/gliner_large-v2.1"
+      # Encoder: DeBERTa-large (304M params)
+      # Ưu: Accuracy cao nhất trong nhóm v2.1
+      # Nhược: Chậm, cần >8GB VRAM
+      train_batch_size: 4      # Giảm batch vì model lớn
+      gradient_accumulation_steps: 4  # Bù lại bằng grad accum
+      learning_rate: 3.0e-5    # LR nhỏ hơn cho model lớn
+      enabled: true
+
+    - name: "GLiNER-Small-v2.5"
+      model_name: "gliner-community/gliner_small-v2.5"
+      # Encoder: DeBERTa-v3-xsmall (22M params), training data mới hơn
+      # Ưu: Mới nhất, trained trên nhiều data hơn v2.1
+      train_batch_size: 8
+      learning_rate: 5.0e-5
+      enabled: true
+
+    - name: "GLiNER-Medium-v2.5"
+      model_name: "gliner-community/gliner_medium-v2.5"
+      # Encoder: DeBERTa-v3-base, training data mới hơn
+      # Ưu: Thường tốt hơn v2.1 trên domain-specific data
+      train_batch_size: 8
+      learning_rate: 5.0e-5
+      enabled: true
+
+    - name: "GLiNER-Multi"
+      model_name: "urchade/gliner_multi-v0.1"
+      # Encoder: XLM-RoBERTa-base (270M params), multilingual
+      # Ưu: Hỗ trợ tiếng Việt + tiếng Anh (JD đa ngôn ngữ)
+      # Nhược: Chậm hơn, cần nhiều VRAM
+      train_batch_size: 4
+      gradient_accumulation_steps: 4
+      learning_rate: 3.0e-5
+      enabled: false            # Bật nếu dataset có JD tiếng Việt

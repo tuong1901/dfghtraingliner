@@ -1,0 +1,78 @@
+# ============================================================
+# CONFIG DEBUG - Dry-run to verify training works without errors
+# ============================================================
+
+run:
+  train_gliner: true          # true = train GLiNER NER model
+  train_classifier: true      # true = train Level Classifier
+  run_benchmark: false        
+  run_benchmark_gliner: false 
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  dataset_path: "../cleaned_dataset.json"   # Đường dẫn tới cleaned_dataset.json
+  val_ratio: 0.1                            # Tỉ lệ validation (10%)
+  max_samples: 20                           # Hạn chế 20 mẫu để test nhanh
+
+# ============================================================
+# GLiNER CONFIG
+# ============================================================
+gliner:
+  model_name: "urchade/gliner_small-v2.1"   # Nhẹ nhất
+  entity_types:
+    - "SKILL"
+    - "EXPERIENCE"
+
+  # Hyperparameters
+  num_epochs: 1
+  train_batch_size: 4
+  eval_batch_size: 4
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 512
+  max_neg_type_ratio: 1
+
+  # Output
+  output_dir: "./outputs/gliner_debug"
+  save_steps: 100
+  eval_steps: 100
+  logging_steps: 10
+  wandb_project: null
+
+# ============================================================
+# LEVEL CLASSIFIER CONFIG
+# ============================================================
+classifier:
+  model_name: "distilbert-base-uncased" # Nhẹ nhất
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "LEAD"
+    - "MANAGER"
+    - "DIRECTOR"
+    - "EXPERT"
+    - "UNKNOWN"
+
+  # Hyperparameters
+  num_epochs: 1
+  train_batch_size: 4
+  eval_batch_size: 4
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 256
+  truncation_strategy: "head+tail"
+
+  # Output
+  output_dir: "./outputs/classifier_debug"
+  save_steps: 100
+  eval_steps: 100
+  logging_steps: 10
+  wandb_project: null
