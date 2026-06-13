@@ -295,6 +295,8 @@ Ví dụ sử dụng:
                     cfg["gliner"]["gradient_accumulation_steps"] = matched_model_cfg["gradient_accumulation_steps"]
                 if "learning_rate" in matched_model_cfg:
                     cfg["gliner"]["learning_rate"] = matched_model_cfg["learning_rate"]
+                if "gradient_checkpointing" in matched_model_cfg:
+                    cfg["gliner"]["gradient_checkpointing"] = matched_model_cfg["gradient_checkpointing"]
             else:
                 cfg["gliner"]["model_name"] = args.models
             print(f"[Config] Override model GLiNER đơn: {cfg['gliner']['model_name']}")

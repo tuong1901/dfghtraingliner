@@ -254,6 +254,7 @@ def train_gliner(cfg: dict):
         dataloader_num_workers=0,
         fp16=device == "cuda",          # Dùng mixed precision nếu có GPU
         gradient_accumulation_steps=gcfg.get("gradient_accumulation_steps", 2),  # Tích luỹ gradient
+        gradient_checkpointing=gcfg.get("gradient_checkpointing", True),  # Tích lũy gradient checkpointing để tránh OOM
     )
     
     # Setup wandb nếu cần

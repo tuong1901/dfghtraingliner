@@ -611,6 +611,7 @@ def run_single_gliner_benchmark(
             fp16=(device == "cuda"),
             gradient_accumulation_steps=grad_accum,
             report_to="none",
+            gradient_checkpointing=benchmark_cfg.get("gradient_checkpointing", True),
         )
 
         data_collator = get_gliner_data_collator(model)
