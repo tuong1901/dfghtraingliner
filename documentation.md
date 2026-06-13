@@ -272,7 +272,36 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 
 ---
 
+## Kết quả Benchmark Thực Tế (Kaggle Run)
+
+### GLiNER Benchmark — Kết quả đã chạy
+
+| Model | Stage | Overall F1 | nDCG@10 | SKILL F1 | EXP F1 | Thời gian |
+|-------|-------|-----------|---------|----------|--------|----------|
+| **GLiNER-Small-v2.1** | Baseline | 0.0202 | 0.2413 | 0.0215 | 0.0056 | — |
+| **GLiNER-Small-v2.1** | Post-FT | **0.6657** | **0.8683** | **0.6683** | **0.6203** | 43m 31s |
+| **GLiNER-Small-v2.1** | Δ | **+0.6455** | **+0.6270** | **+0.6469** | **+0.6147** | — |
+| GLiNER-Medium-v2.1 | Baseline | 0.0240 | 0.2033 | 0.0248 | 0.0146 | — |
+| GLiNER-Medium-v2.1 | Post-FT | ❌ CUDA OOM | — | — | — | — |
+
+**Chi tiết GLiNER-Small-v2.1 (hoàn thành):**
+- Train: 7193 mẫu | Val: 799 mẫu
+- Hyperparams: `max_length=1024`, `batch=8`, `lr=5e-5`, `grad_accum=2`, `3 epochs`
+- Trainable params: 152,648,704
+- SKILL: P=0.8049 | R=0.5714 | F1=0.6683 (TP=9346, FP=2265, FN=7011)
+- EXPERIENCE: P=0.8386 | R=0.4922 | F1=0.6203 (TP=504, FP=97, FN=520)
+- Infer speed: 0.3 samples/sec
+
+**Vấn đề GLiNER-Medium-v2.1 (CUDA OOM):**
+- Model lớn hơn (195M params, DeBERTa-base encoder, file ~1.56GB)
+- GPU 14.56 GiB bị đầy khi train với `batch=8`
+- **Gợi ý fix**: giảm `train_batch_size: 4`, tăng `gradient_accumulation_steps: 4`, thêm env var `PYTORCH_ALLOC_CONF=expandable_segments:True`
+
+---
+
 ### Lịch sử cập nhật tài liệu và mã nguồn
 - **2026-06-12**: Sửa lỗi `TypeError: evaluate_gliner() got an unexpected keyword argument 'ndcg_k'` trong [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py) bằng cách đổi tham số truyền vào từ `ndcg_k=ndcg_k` thành `ndcg_ks=[ndcg_k]` để khớp với chữ ký của hàm `evaluate_gliner`.
 - **2026-06-13**: Sửa lỗi `TypeError: 'int' object is not iterable` khi gọi hàm `_print_eval_metrics` tại dòng 561 và 654 trong [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py). Đã sửa tham số truyền vào từ `ndcg_k` thành `[ndcg_k]`, đồng thời cập nhật thân hàm `_print_eval_metrics` để tự động convert `int` sang list.
 - **2026-06-13 (Kiểm tra cuối)**: Rà soát toàn diện dự án. Chạy biên dịch kiểm tra cú pháp (compile check) trên tất cả các tệp Python và rà soát các lời gọi hàm khác. Toàn bộ hệ thống sẵn sàng và không còn lỗi tiềm ẩn.
+- **2026-06-13 (Benchmark chạy thực tế)**: Chạy benchmark trên Kaggle GPU (14.56 GiB). GLiNER-Small-v2.1 hoàn thành: F1=0.6657, nDCG@10=0.8683. GLiNER-Medium-v2.1 gặp CUDA OOM khi fine-tune do GPU không đủ VRAM với batch_size=8. Cần giảm batch size cho Medium/Large model.
+- **2026-06-13 (Fix CUDA OOM)**: Cập nhật [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) — giảm `train_batch_size: 8 → 4` và thêm `gradient_accumulation_steps: 4` cho GLiNER-Medium-v2.1 và GLiNER-Medium-v2.5 để tránh CUDA OOM trên GPU ≤16GB (effective batch size vẫn = 16). GLiNER-Large-v2.1 đã có batch=4 + grad_accum=4 từ trước.

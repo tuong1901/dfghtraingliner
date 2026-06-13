@@ -216,6 +216,8 @@ benchmark_gliner:
   warmup_ratio: 0.1
   max_neg_type_ratio: 1      # Negative type ratio = 1 (với 2 entity types là phù hợp)
   gradient_accumulation_steps: 2  # Tích lũy gradient để effective batch = 16
+  # PYTORCH_ALLOC_CONF: Nếu vẫn bị OOM, thêm vào đầu lệnh chạy:
+  #   PYTORCH_ALLOC_CONF=expandable_segments:True python benchmark_gliner.py
   # Metrics
   eval_threshold: 0.5        # Ngưỡng confidence khi đánh giá F1
   low_threshold: 0.1         # Ngưỡng thấp để thu candidates cho nDCG ranking
@@ -248,7 +250,9 @@ benchmark_gliner:
       model_name: "urchade/gliner_medium-v2.1"
       # Encoder: DeBERTa-base (86M params)
       # Ưu: Cân bằng tốc độ/chất lượng, đây là lựa chọn recommend
-      train_batch_size: 8
+      # NOTE: Giảm batch=4 + grad_accum=4 để tránh CUDA OOM trên GPU ≤16GB
+      train_batch_size: 4
+      gradient_accumulation_steps: 4
       learning_rate: 5.0e-5
       enabled: true
 
@@ -274,7 +278,9 @@ benchmark_gliner:
       model_name: "gliner-community/gliner_medium-v2.5"
       # Encoder: DeBERTa-v3-base, training data mới hơn
       # Ưu: Thường tốt hơn v2.1 trên domain-specific data
-      train_batch_size: 8
+      # NOTE: Giảm batch=4 + grad_accum=4 để tránh CUDA OOM trên GPU ≤16GB
+      train_batch_size: 4
+      gradient_accumulation_steps: 4
       learning_rate: 5.0e-5
       enabled: true
 
