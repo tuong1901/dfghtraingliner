@@ -261,9 +261,9 @@ benchmark_gliner:
       model_name: "urchade/gliner_large-v2.1"
       # Encoder: DeBERTa-large (304M params)
       # Ưu: Accuracy cao nhất trong nhóm v2.1
-      # Nhược: Chậm, cần >8GB VRAM
-      train_batch_size: 4      # Giảm batch vì model lớn
-      gradient_accumulation_steps: 4  # Bù lại bằng grad accum
+      # Nhược: Chậm, cần nhiều VRAM
+      train_batch_size: 2      # Giảm batch xuống 2 để tránh CUDA OOM
+      gradient_accumulation_steps: 8  # Tăng grad accum lên 8
       learning_rate: 3.0e-5    # LR nhỏ hơn cho model lớn
       enabled: false     
 
@@ -290,7 +290,7 @@ benchmark_gliner:
       # Encoder: XLM-RoBERTa-base (270M params), multilingual
       # Ưu: Hỗ trợ tiếng Việt + tiếng Anh (JD đa ngôn ngữ), Apache 2.0
       # Nhược: Chậm hơn, cần nhiều VRAM
-      train_batch_size: 4
-      gradient_accumulation_steps: 4
+      train_batch_size: 2      # Giảm batch xuống 2 để tránh CUDA OOM
+      gradient_accumulation_steps: 8  # Tăng grad accum lên 8
       learning_rate: 3.0e-5
       enabled: false                   # Bật nếu dataset có JD tiếng Việt

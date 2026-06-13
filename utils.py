@@ -24,6 +24,10 @@ if "NCCL_P2P_DISABLE" not in os.environ:
 if "NCCL_IB_DISABLE" not in os.environ:
     os.environ["NCCL_IB_DISABLE"] = "1"
 
+# Tự động cấu hình bộ nhớ PyTorch CUDA để tránh phân mảnh bộ nhớ (Memory Fragmentation OOM)
+if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
 
 # ----------------------------------------------------------------
 # Đọc config
