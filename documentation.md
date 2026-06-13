@@ -274,3 +274,4 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 
 ### Lịch sử cập nhật tài liệu và mã nguồn
 - **2026-06-12**: Sửa lỗi `TypeError: evaluate_gliner() got an unexpected keyword argument 'ndcg_k'` trong [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py) bằng cách đổi tham số truyền vào từ `ndcg_k=ndcg_k` thành `ndcg_ks=[ndcg_k]` để khớp với chữ ký của hàm `evaluate_gliner`.
+- **2026-06-13**: Sửa lỗi `TypeError: 'int' object is not iterable` khi gọi hàm `_print_eval_metrics` tại dòng 561 và 654 trong [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py). Đã sửa tham số truyền vào từ `ndcg_k` thành `[ndcg_k]`, đồng thời cập nhật thân hàm `_print_eval_metrics` để tự động convert `int` sang list.

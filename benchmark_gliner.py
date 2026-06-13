@@ -368,7 +368,9 @@ def evaluate_gliner(
 # ================================================================
 def _print_eval_metrics(label: str, metrics: Dict, entity_types: List[str], ndcg_ks: List[int] = None):
     """In kết quả evaluate đẹp ra terminal."""
-    if ndcg_ks is None:
+    if isinstance(ndcg_ks, int):
+        ndcg_ks = [ndcg_ks]
+    elif ndcg_ks is None:
         ndcg_ks = [5, 10]
 
     f1   = metrics.get("overall_f1", 0)
@@ -558,7 +560,7 @@ def run_single_gliner_benchmark(
             low_threshold=low_threshold,
         )
 
-        _print_eval_metrics("BASELINE", baseline_metrics, entity_types, ndcg_k)
+        _print_eval_metrics("BASELINE", baseline_metrics, entity_types, [ndcg_k])
 
         # Lưu baseline metrics
         baseline_path = os.path.join(model_output_dir, "baseline_metrics.json")
@@ -651,7 +653,7 @@ def run_single_gliner_benchmark(
             low_threshold=low_threshold,
         )
 
-        _print_eval_metrics("POST FINE-TUNE", ft_metrics, entity_types, ndcg_k)
+        _print_eval_metrics("POST FINE-TUNE", ft_metrics, entity_types, [ndcg_k])
 
         # Save post-FT metrics
         ft_metrics_path = os.path.join(best_dir, "eval_metrics.json")
