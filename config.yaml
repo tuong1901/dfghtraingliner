@@ -43,7 +43,7 @@ gliner:
   learning_rate: 5.0e-5
   weight_decay: 0.01
   warmup_ratio: 0.1
-  max_length: 1024         # Độ dài tối đa token input
+  max_length: 512          # Độ dài tối đa token input (giảm từ 1024 xuống 512 để tránh OOM)
   max_neg_type_ratio: 1    # Tỉ lệ negative entity type sampling
 
   # Output
@@ -207,7 +207,7 @@ benchmark_gliner:
 
   # Config chung cho tất cả model (model có thể override từng trường)
   num_epochs: 3              # ít epoch để benchmark nhanh; tăng lên 5 cho final train
-  max_length: 1024           # JD dài, cần max_length cao. GLiNER dùng sliding window
+  max_length: 512            # Độ dài tối đa token input (giảm từ 1024 xuống 512 để tránh OOM)
   train_batch_size: 8        # Small batch do model lớn (DeBERTa)
   eval_batch_size: 8
   learning_rate: 5.0e-5      # LR tốt cho GLiNER finetune

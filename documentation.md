@@ -70,11 +70,12 @@ File cấu hình tổng. **Chỉ cần chỉnh file này**, không cần sửa c
 **CLI flags:**
 | Flag | Tác dụng |
 |------|----------|
-| `--config path` | Dùng file config khác (mặc định: config.yaml) |
+| `--config path` | Dùng file config làm cấu hình (mặc định: config.yaml) |
 | `--gliner-only` | Chỉ train GLiNER |
-| `--classifier-only` | Chỉ train Classifier đơn |
+| `--classifier-only` | Chỉ train Level Classifier đơn |
 | `--benchmark` | Benchmark nhiều Classifier model (BERT/RoBERTa/DeBERTa/...) |
 | `--benchmark-gliner` | **Benchmark nhiều GLiNER architecture (Small/Medium/Large/v2.5/Multi)** |
+| `--models name` | Chỉ định các model GLiNER cần chạy (cách nhau bởi dấu phẩy, vd: `GLiNER-Small-v2.5,GLiNER-Medium-v2.5`), tự động ghi đè trường `enabled` hoặc `model_name` trong config |
 | `--check-deps` | Chỉ kiểm tra thư viện |
 | `--no-test` | Bỏ qua quick test sau train |
 
@@ -204,6 +205,11 @@ outputs/benchmark_gliner/
 | `print_banner(title)` | In tiêu đề đẹp |
 | `check_device()` | Kiểm tra GPU/CPU |
 
+### `.gitignore`
+Tệp cấu hình Git để loại bỏ các tệp không cần thiết khỏi hệ thống quản lý mã nguồn:
+* Bỏ qua thư mục lưu kết quả `outputs/` để tránh push nhầm các file trọng số model siêu nặng (>100MB) lên GitHub.
+* Bỏ qua thư mục cache của Python `__pycache__/`, các tệp compiled `*.pyc`, các file hệ thống `desktop.ini`, và các tệp cấu hình tạm thời khác.
+
 ---
 
 ### `requirements.txt`
@@ -309,3 +315,6 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 - **2026-06-13 (Fix CUDA OOM)**: Cập nhật [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) — giảm `train_batch_size: 8 → 4` và thêm `gradient_accumulation_steps: 4` cho GLiNER-Medium-v2.1 và GLiNER-Medium-v2.5 để tránh CUDA OOM trên GPU ≤16GB (effective batch size vẫn = 16). GLiNER-Large-v2.1 đã có batch=4 + grad_accum=4 từ trước.
 - **2026-06-13 (Fix GLiNER-Multi model ID)**: Sửa model ID trong [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) từ `urchade/gliner_multi-v0.1` (không tồn tại/private, trả 401 Unauthorized) sang `urchade/gliner_multi-v2.1` (public, Apache 2.0). Cập nhật bảng model trong [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
 - **2026-06-13 (Sửa lỗi NCCL Error 1)**: Thêm cấu hình tự động cho biến môi trường `NCCL_P2P_DISABLE=1` và `NCCL_IB_DISABLE=1` trong [utils.py](file:///c:/Users/loiha/Videos/dfghtraingliner/utils.py) để vô hiệu hóa Peer-to-Peer và InfiniBand của NCCL khi chạy huấn luyện song song trên Kaggle Dual T4 GPU, khắc phục triệt để lỗi crash `NCCL Error 1: unhandled cuda error`.
+- **2026-06-13 (Giảm max_length)**: Thay đổi `max_length` từ `1024` xuống `512` trong [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) cho cả cấu hình gliner đơn và benchmark_gliner nhằm giải quyết triệt để lỗi CUDA OOM và lỗi kéo theo `Attempted unscale_ but _scale is None` khi chạy trên môi trường Kaggle GPU có VRAM nhỏ (~15GB/16GB).
+- **2026-06-13 (Thêm flag --models)**: Thêm tham số `--models` cho [train_master.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_master.py) và [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py) để cho phép chọn nhanh các model muốn chạy trực tiếp bằng dòng lệnh mà không cần sửa file config.yaml.
+- **2026-06-13 (Thêm .gitignore)**: Tạo tệp [.gitignore](file:///c:/Users/loiha/Videos/dfghtraingliner/.gitignore) và dọn dẹp lịch sử git để loại bỏ thư mục `outputs/` và các file `*.pyc` khỏi commit, tránh lỗi push file dung lượng lớn lên GitHub.

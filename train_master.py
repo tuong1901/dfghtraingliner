@@ -241,6 +241,10 @@ Ví dụ sử dụng:
         "--no-test", action="store_true",
         help="Bỏ qua bước quick test sau khi train"
     )
+    parser.add_argument(
+        "--models", type=str, default=None,
+        help="Danh sách các model GLiNER muốn chạy, cách nhau bằng dấu phẩy (vd: GLiNER-Small-v2.5,GLiNER-Medium-v2.5)"
+    )
     args = parser.parse_args()
     
     # --- Resolve config path ---
@@ -258,6 +262,37 @@ Ví dụ sử dụng:
     cfg = load_config(config_path)
     
     # --- Override từ command line args ---
+    if args.models:
+        target_models = [m.strip().lower() for m in args.models.split(",")]
+        # Override cho benchmark_gliner
+        if "benchmark_gliner" in cfg and "models" in cfg["benchmark_gliner"]:
+            for m in cfg["benchmark_gliner"]["models"]:
+                m_name = m.get("name", m["model_name"]).strip().lower()
+                m_hf_id = m["model_name"].strip().lower()
+                matched = False
+                for tm in target_models:
+                    if tm in m_name or tm in m_hf_id:
+                        matched = True
+                        break
+                m["enabled"] = matched
+        
+        # Override cho single train gliner
+        if "gliner" in cfg:
+            first_target = target_models[0]
+            matched_hf_id = None
+            if "benchmark_gliner" in cfg and "models" in cfg["benchmark_gliner"]:
+                for m in cfg["benchmark_gliner"]["models"]:
+                    m_name = m.get("name", m["model_name"]).strip().lower()
+                    m_hf_id = m["model_name"].strip().lower()
+                    if first_target in m_name or first_target in m_hf_id:
+                        matched_hf_id = m["model_name"]
+                        break
+            if matched_hf_id:
+                cfg["gliner"]["model_name"] = matched_hf_id
+            else:
+                cfg["gliner"]["model_name"] = args.models
+            print(f"[Config] Override model GLiNER đơn: {cfg['gliner']['model_name']}")
+
     if args.gliner_only:
         cfg["run"]["train_gliner"] = True
         cfg["run"]["train_classifier"] = False

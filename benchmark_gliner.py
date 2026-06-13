@@ -1302,6 +1302,10 @@ Ví dụ:
         """
     )
     parser.add_argument("--config", type=str, default="config.yaml")
+    parser.add_argument(
+        "--models", type=str, default=None,
+        help="Danh sách các model GLiNER muốn chạy benchmark, cách nhau bằng dấu phẩy (vd: GLiNER-Small-v2.5,GLiNER-Medium-v2.5)"
+    )
     args = parser.parse_args()
 
     config_path = str(Path(args.config).resolve())
@@ -1310,6 +1314,20 @@ Ví dụ:
         config_path = alt if os.path.exists(alt) else config_path
 
     cfg = load_config(config_path)
+
+    # --- Override từ command line args ---
+    if args.models:
+        target_models = [m.strip().lower() for m in args.models.split(",")]
+        if "benchmark_gliner" in cfg and "models" in cfg["benchmark_gliner"]:
+            for m in cfg["benchmark_gliner"]["models"]:
+                m_name = m.get("name", m["model_name"]).strip().lower()
+                m_hf_id = m["model_name"].strip().lower()
+                matched = False
+                for tm in target_models:
+                    if tm in m_name or tm in m_hf_id:
+                        matched = True
+                        break
+                m["enabled"] = matched
 
     # Resolve paths
     ds = cfg["data"]["dataset_path"]

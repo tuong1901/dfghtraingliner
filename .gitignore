@@ -1,0 +1,6 @@
+outputs/
+__pycache__/
+*.pyc
+desktop.ini
+.ipynb_checkpoints/
+*.log
