@@ -254,7 +254,7 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 5.0e-5
-      enabled: false     
+      enabled: true           
 
     - name: "GLiNER-Large-v2.1"
       model_name: "urchade/gliner_large-v2.1"
@@ -285,9 +285,9 @@ benchmark_gliner:
       enabled: false     
 
     - name: "GLiNER-Multi"
-      model_name: "urchade/gliner_multi-v0.1"
+      model_name: "urchade/gliner_multi-v2.1"
       # Encoder: XLM-RoBERTa-base (270M params), multilingual
-      # Ưu: Hỗ trợ tiếng Việt + tiếng Anh (JD đa ngôn ngữ)
+      # Ưu: Hỗ trợ tiếng Việt + tiếng Anh (JD đa ngôn ngữ), Apache 2.0
       # Nhược: Chậm hơn, cần nhiều VRAM
       train_batch_size: 4
       gradient_accumulation_steps: 4
