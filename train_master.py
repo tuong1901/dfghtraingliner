@@ -279,19 +279,26 @@ Ví dụ sử dụng:
         # Override cho single train gliner
         if "gliner" in cfg:
             first_target = target_models[0]
-            matched_hf_id = None
+            matched_model_cfg = None
             if "benchmark_gliner" in cfg and "models" in cfg["benchmark_gliner"]:
                 for m in cfg["benchmark_gliner"]["models"]:
                     m_name = m.get("name", m["model_name"]).strip().lower()
                     m_hf_id = m["model_name"].strip().lower()
                     if first_target in m_name or first_target in m_hf_id:
-                        matched_hf_id = m["model_name"]
+                        matched_model_cfg = m
                         break
-            if matched_hf_id:
-                cfg["gliner"]["model_name"] = matched_hf_id
+            if matched_model_cfg:
+                cfg["gliner"]["model_name"] = matched_model_cfg["model_name"]
+                if "train_batch_size" in matched_model_cfg:
+                    cfg["gliner"]["train_batch_size"] = matched_model_cfg["train_batch_size"]
+                if "gradient_accumulation_steps" in matched_model_cfg:
+                    cfg["gliner"]["gradient_accumulation_steps"] = matched_model_cfg["gradient_accumulation_steps"]
+                if "learning_rate" in matched_model_cfg:
+                    cfg["gliner"]["learning_rate"] = matched_model_cfg["learning_rate"]
             else:
                 cfg["gliner"]["model_name"] = args.models
             print(f"[Config] Override model GLiNER đơn: {cfg['gliner']['model_name']}")
+            print(f"         Hyperparams: batch={cfg['gliner'].get('train_batch_size')}, grad_accum={cfg['gliner'].get('gradient_accumulation_steps')}, lr={cfg['gliner'].get('learning_rate')}")
 
     if args.gliner_only:
         cfg["run"]["train_gliner"] = True
