@@ -292,4 +292,4 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 3.0e-5
-      enabled: true                  # Bật nếu dataset có JD tiếng Việt
+      enabled: true                   # Bật nếu dataset có JD tiếng Việt
