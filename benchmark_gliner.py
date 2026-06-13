@@ -588,6 +588,23 @@ def run_single_gliner_benchmark(
 
         # Reload để fine-tune fresh (không bị ảnh hưởng bởi eval mode)
         model = GLiNER.from_pretrained(model_hf_id)
+        
+        # Monkey-patch để hỗ trợ gradient checkpointing trên các model GLiNER không có sẵn thuộc tính này
+        if benchmark_cfg.get("gradient_checkpointing", True):
+            def custom_gradient_checkpointing_enable(gradient_checkpointing_kwargs=None, **kwargs):
+                from transformers import PreTrainedModel
+                for module in model.modules():
+                    if isinstance(module, PreTrainedModel):
+                        try:
+                            module.gradient_checkpointing_enable(gradient_checkpointing_kwargs=gradient_checkpointing_kwargs, **kwargs)
+                        except TypeError:
+                            try:
+                                module.gradient_checkpointing_enable()
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
+            model.gradient_checkpointing_enable = custom_gradient_checkpointing_enable
 
         training_args = TrainingArguments(
             output_dir=model_output_dir,

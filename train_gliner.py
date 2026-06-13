@@ -224,6 +224,23 @@ def train_gliner(cfg: dict):
     print(f"\n[GLiNER] Load model: {model_name}")
     model = GLiNER.from_pretrained(model_name)
     
+    # Monkey-patch để hỗ trợ gradient checkpointing trên các model GLiNER không có sẵn thuộc tính này
+    if gcfg.get("gradient_checkpointing", True):
+        def custom_gradient_checkpointing_enable(gradient_checkpointing_kwargs=None, **kwargs):
+            from transformers import PreTrainedModel
+            for module in model.modules():
+                if isinstance(module, PreTrainedModel):
+                    try:
+                        module.gradient_checkpointing_enable(gradient_checkpointing_kwargs=gradient_checkpointing_kwargs, **kwargs)
+                    except TypeError:
+                        try:
+                            module.gradient_checkpointing_enable()
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+        model.gradient_checkpointing_enable = custom_gradient_checkpointing_enable
+    
     # 4. Training arguments
     output_dir = gcfg.get("output_dir", "./outputs/gliner")
     os.makedirs(output_dir, exist_ok=True)
