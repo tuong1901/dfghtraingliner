@@ -244,7 +244,7 @@ benchmark_gliner:
       # Nhược: Accuracy thấp hơn so với medium/large
       train_batch_size: 8
       learning_rate: 5.0e-5
-      enabled: true
+      enabled: false     
 
     - name: "GLiNER-Medium-v2.1"
       model_name: "urchade/gliner_medium-v2.1"
@@ -254,7 +254,7 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 5.0e-5
-      enabled: true
+      enabled: false     
 
     - name: "GLiNER-Large-v2.1"
       model_name: "urchade/gliner_large-v2.1"
@@ -264,7 +264,7 @@ benchmark_gliner:
       train_batch_size: 4      # Giảm batch vì model lớn
       gradient_accumulation_steps: 4  # Bù lại bằng grad accum
       learning_rate: 3.0e-5    # LR nhỏ hơn cho model lớn
-      enabled: true
+      enabled: false     
 
     - name: "GLiNER-Small-v2.5"
       model_name: "gliner-community/gliner_small-v2.5"
@@ -272,7 +272,7 @@ benchmark_gliner:
       # Ưu: Mới nhất, trained trên nhiều data hơn v2.1
       train_batch_size: 8
       learning_rate: 5.0e-5
-      enabled: true
+      enabled: false     
 
     - name: "GLiNER-Medium-v2.5"
       model_name: "gliner-community/gliner_medium-v2.5"
@@ -282,7 +282,7 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 5.0e-5
-      enabled: true
+      enabled: false     
 
     - name: "GLiNER-Multi"
       model_name: "urchade/gliner_multi-v0.1"
@@ -292,4 +292,4 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 3.0e-5
-      enabled: false            # Bật nếu dataset có JD tiếng Việt
+      enabled: true                  # Bật nếu dataset có JD tiếng Việt
