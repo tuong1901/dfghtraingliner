@@ -272,7 +272,7 @@ benchmark_gliner:
       # Ưu: Mới nhất, trained trên nhiều data hơn v2.1
       train_batch_size: 8
       learning_rate: 5.0e-5
-      enabled: true     
+      enabled: false     
 
     - name: "GLiNER-Medium-v2.5"
       model_name: "gliner-community/gliner_medium-v2.5"
@@ -282,7 +282,7 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 5.0e-5
-      enabled: false     
+      enabled: true     
 
     - name: "GLiNER-Multi"
       model_name: "urchade/gliner_multi-v2.1"
