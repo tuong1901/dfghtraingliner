@@ -159,7 +159,7 @@ Thiết kế phù hợp với data:
 | GLiNER-Large-v2.1 | `urchade/gliner_large-v2.1` | DeBERTa-large (304M) | Chính xác nhất |
 | GLiNER-Small-v2.5 | `gliner-community/gliner_small-v2.5` | DeBERTa-v3-xsmall | Mới nhất, nhỏ |
 | GLiNER-Medium-v2.5 | `gliner-community/gliner_medium-v2.5` | DeBERTa-v3-base | Mới nhất, recommend |
-| GLiNER-Multi | `urchade/gliner_multi-v0.1` | XLM-RoBERTa (270M) | Multilingual Vi+En |
+| GLiNER-Multi | `urchade/gliner_multi-v2.1` | XLM-RoBERTa (270M) | Multilingual Vi+En, Apache 2.0 |
 
 **Hàm chính:**
 - **`compute_ndcg_at_k(preds, golds, k)`**: Tính nDCG@K cho 1 document (char-level exact span match). P/Rố predictions theo score giảm dần, relevance=1 nếu exact match với gold, tính DCG/IDCG
@@ -305,3 +305,4 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 - **2026-06-13 (Kiểm tra cuối)**: Rà soát toàn diện dự án. Chạy biên dịch kiểm tra cú pháp (compile check) trên tất cả các tệp Python và rà soát các lời gọi hàm khác. Toàn bộ hệ thống sẵn sàng và không còn lỗi tiềm ẩn.
 - **2026-06-13 (Benchmark chạy thực tế)**: Chạy benchmark trên Kaggle GPU (14.56 GiB). GLiNER-Small-v2.1 hoàn thành: F1=0.6657, nDCG@10=0.8683. GLiNER-Medium-v2.1 gặp CUDA OOM khi fine-tune do GPU không đủ VRAM với batch_size=8. Cần giảm batch size cho Medium/Large model.
 - **2026-06-13 (Fix CUDA OOM)**: Cập nhật [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) — giảm `train_batch_size: 8 → 4` và thêm `gradient_accumulation_steps: 4` cho GLiNER-Medium-v2.1 và GLiNER-Medium-v2.5 để tránh CUDA OOM trên GPU ≤16GB (effective batch size vẫn = 16). GLiNER-Large-v2.1 đã có batch=4 + grad_accum=4 từ trước.
+- **2026-06-13 (Fix GLiNER-Multi model ID)**: Sửa model ID trong [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) từ `urchade/gliner_multi-v0.1` (không tồn tại/private, trả 401 Unauthorized) sang `urchade/gliner_multi-v2.1` (public, Apache 2.0). Cập nhật bảng model trong [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
