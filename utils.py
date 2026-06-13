@@ -10,6 +10,13 @@ Các hàm tiện ích dùng chung cho cả 2 pipeline training:
 """
 
 import os
+
+# Tự động giới hạn chỉ dùng GPU 0 để tránh PyTorch DataParallel (gây tràn VRAM và lỗi NCCL)
+# Chỉ áp dụng nếu chạy script đơn lẻ (không chạy DDP/torchrun) và chưa được thiết lập thủ công
+if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    if "RANK" not in os.environ and "LOCAL_RANK" not in os.environ:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 import json
 import random
 import time
