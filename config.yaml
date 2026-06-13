@@ -264,7 +264,7 @@ benchmark_gliner:
       train_batch_size: 4      # Giảm batch vì model lớn
       gradient_accumulation_steps: 4  # Bù lại bằng grad accum
       learning_rate: 3.0e-5    # LR nhỏ hơn cho model lớn
-      enabled: false     
+      enabled: true     
 
     - name: "GLiNER-Small-v2.5"
       model_name: "gliner-community/gliner_small-v2.5"
@@ -292,4 +292,4 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 3.0e-5
-      enabled: true                   # Bật nếu dataset có JD tiếng Việt
+      enabled: false                   # Bật nếu dataset có JD tiếng Việt
