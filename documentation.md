@@ -192,6 +192,8 @@ outputs/benchmark_gliner/
 ### `utils.py`
 **Hàm tiện ích dùng chung** giữa tất cả pipeline.
 
+* **Cấu hình môi trường**: Tự động đặt `NCCL_P2P_DISABLE=1` và `NCCL_IB_DISABLE=1` ngay khi import để phòng tránh lỗi `"NCCL Error 1: unhandled cuda error"` thường gặp trên môi trường Dual T4 GPU của Kaggle.
+
 | Hàm | Tác dụng |
 |-----|----------|
 | `load_config(config_path)` | Đọc YAML → dict |
@@ -306,3 +308,4 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 - **2026-06-13 (Benchmark chạy thực tế)**: Chạy benchmark trên Kaggle GPU (14.56 GiB). GLiNER-Small-v2.1 hoàn thành: F1=0.6657, nDCG@10=0.8683. GLiNER-Medium-v2.1 gặp CUDA OOM khi fine-tune do GPU không đủ VRAM với batch_size=8. Cần giảm batch size cho Medium/Large model.
 - **2026-06-13 (Fix CUDA OOM)**: Cập nhật [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) — giảm `train_batch_size: 8 → 4` và thêm `gradient_accumulation_steps: 4` cho GLiNER-Medium-v2.1 và GLiNER-Medium-v2.5 để tránh CUDA OOM trên GPU ≤16GB (effective batch size vẫn = 16). GLiNER-Large-v2.1 đã có batch=4 + grad_accum=4 từ trước.
 - **2026-06-13 (Fix GLiNER-Multi model ID)**: Sửa model ID trong [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) từ `urchade/gliner_multi-v0.1` (không tồn tại/private, trả 401 Unauthorized) sang `urchade/gliner_multi-v2.1` (public, Apache 2.0). Cập nhật bảng model trong [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+- **2026-06-13 (Sửa lỗi NCCL Error 1)**: Thêm cấu hình tự động cho biến môi trường `NCCL_P2P_DISABLE=1` và `NCCL_IB_DISABLE=1` trong [utils.py](file:///c:/Users/loiha/Videos/dfghtraingliner/utils.py) để vô hiệu hóa Peer-to-Peer và InfiniBand của NCCL khi chạy huấn luyện song song trên Kaggle Dual T4 GPU, khắc phục triệt để lỗi crash `NCCL Error 1: unhandled cuda error`.

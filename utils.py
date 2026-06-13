@@ -9,6 +9,7 @@ Các hàm tiện ích dùng chung cho cả 2 pipeline training:
   - format_time()        : Format thời gian đẹp khi logging
 """
 
+import os
 import json
 import random
 import time
@@ -16,6 +17,12 @@ import yaml
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
+
+# Tự động cấu hình NCCL để tránh lỗi "NCCL Error 1: unhandled cuda error" trên Kaggle Dual T4 GPU
+if "NCCL_P2P_DISABLE" not in os.environ:
+    os.environ["NCCL_P2P_DISABLE"] = "1"
+if "NCCL_IB_DISABLE" not in os.environ:
+    os.environ["NCCL_IB_DISABLE"] = "1"
 
 
 # ----------------------------------------------------------------
