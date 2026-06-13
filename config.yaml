@@ -254,7 +254,7 @@ benchmark_gliner:
       train_batch_size: 4
       gradient_accumulation_steps: 4
       learning_rate: 5.0e-5
-      enabled: true           
+      enabled: false           
 
     - name: "GLiNER-Large-v2.1"
       model_name: "urchade/gliner_large-v2.1"
