@@ -540,6 +540,12 @@ def run_single_gliner_benchmark(
         # ============================================================
         print(f"\n[{model_display}] STEP 1: Load pretrained model từ HuggingFace...")
         model = GLiNER.from_pretrained(model_hf_id)
+        
+        # Đồng bộ hóa max_len của data processor với config để tránh cảnh báo bị cắt ngắn về 384
+        if hasattr(model, "data_processor") and hasattr(model.data_processor, "max_len"):
+            print(f"  [{model_display}] Đồng bộ hóa max_len của processor từ {model.data_processor.max_len} thành {max_length}")
+            model.data_processor.max_len = max_length
+            
         model.eval()
 
         n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -589,6 +595,10 @@ def run_single_gliner_benchmark(
         # Reload để fine-tune fresh (không bị ảnh hưởng bởi eval mode)
         model = GLiNER.from_pretrained(model_hf_id)
         
+        # Đồng bộ hóa max_len của data processor với config để tránh cảnh báo bị cắt ngắn về 384
+        if hasattr(model, "data_processor") and hasattr(model.data_processor, "max_len"):
+            model.data_processor.max_len = max_length
+        
         # Monkey-patch để hỗ trợ gradient checkpointing trên các model GLiNER không có sẵn thuộc tính này
         if benchmark_cfg.get("gradient_checkpointing", True):
             def custom_gradient_checkpointing_enable(gradient_checkpointing_kwargs=None, **kwargs):
@@ -629,6 +639,8 @@ def run_single_gliner_benchmark(
             gradient_accumulation_steps=grad_accum,
             report_to="none",
             gradient_checkpointing=benchmark_cfg.get("gradient_checkpointing", True),
+            save_total_limit=benchmark_cfg.get("save_total_limit", 1),
+            save_only_model=benchmark_cfg.get("save_only_model", True),
         )
 
         data_collator = get_gliner_data_collator(model)

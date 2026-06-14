@@ -52,6 +52,8 @@ gliner:
   output_dir: "./outputs/gliner"
   save_steps: 500
   eval_steps: 500
+  save_total_limit: 1      # Số checkpoint tối đa được giữ (tránh tràn đĩa, đặt null nếu chạy Colab không giới hạn)
+  save_only_model: true    # Chỉ lưu trọng số mô hình, bỏ optimizer state (tiết kiệm đĩa, đặt false nếu muốn resume)
   logging_steps: 50
 
   # Wandb (đặt null để tắt)
@@ -219,6 +221,8 @@ benchmark_gliner:
   max_neg_type_ratio: 1      # Negative type ratio = 1 (với 2 entity types là phù hợp)
   gradient_accumulation_steps: 2  # Tích lũy gradient để effective batch = 16
   gradient_checkpointing: true    # Bật gradient checkpointing để giảm activation memory, chống OOM
+  save_total_limit: 1             # Số checkpoint tối đa được giữ khi benchmark từng model
+  save_only_model: true           # Chỉ lưu trọng số mô hình khi benchmark (giảm tải đĩa tối đa)
   # PYTORCH_ALLOC_CONF: Nếu vẫn bị OOM, thêm vào đầu lệnh chạy:
   #   PYTORCH_ALLOC_CONF=expandable_segments:True python benchmark_gliner.py
   # Metrics

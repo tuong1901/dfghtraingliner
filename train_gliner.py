@@ -224,6 +224,11 @@ def train_gliner(cfg: dict):
     print(f"\n[GLiNER] Load model: {model_name}")
     model = GLiNER.from_pretrained(model_name)
     
+    # Đồng bộ hóa max_len của data processor với config để tránh cảnh báo bị cắt ngắn về 384
+    if hasattr(model, "data_processor") and hasattr(model.data_processor, "max_len"):
+        print(f"[GLiNER] Đồng bộ hóa max_len của processor từ {model.data_processor.max_len} thành {max_length}")
+        model.data_processor.max_len = max_length
+    
     # Monkey-patch để hỗ trợ gradient checkpointing trên các model GLiNER không có sẵn thuộc tính này
     if gcfg.get("gradient_checkpointing", True):
         def custom_gradient_checkpointing_enable(gradient_checkpointing_kwargs=None, **kwargs):
@@ -272,6 +277,8 @@ def train_gliner(cfg: dict):
         fp16=device == "cuda",          # Dùng mixed precision nếu có GPU
         gradient_accumulation_steps=gcfg.get("gradient_accumulation_steps", 2),  # Tích luỹ gradient
         gradient_checkpointing=gcfg.get("gradient_checkpointing", True),  # Tích lũy gradient checkpointing để tránh OOM
+        save_total_limit=gcfg.get("save_total_limit", 1),
+        save_only_model=gcfg.get("save_only_model", True),
     )
     
     # Setup wandb nếu cần

@@ -13,7 +13,7 @@ run:
 # DATASET
 # ============================================================
 data:
-  dataset_path: "../cleaned_dataset.json"   # Đường dẫn tới cleaned_dataset.json
+  dataset_path: "./cleaned_dataset.json"   # Đường dẫn tới cleaned_dataset.json
   val_ratio: 0.1                            # Tỉ lệ validation (10%)
   max_samples: 20                           # Hạn chế 20 mẫu để test nhanh
 
