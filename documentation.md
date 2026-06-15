@@ -190,6 +190,18 @@ outputs/benchmark_gliner/
 
 ---
 
+### `check_labels.py`
+**Script kiểm tra và thống kê nhãn (level)** của dataset.
+
+**Tính năng/Hàm chính:**
+- **`main()`**: 
+  - Tự động cấu hình mã hóa UTF-8 cho stdout trên môi trường Windows để hiển thị chính xác chữ tiếng Việt có dấu mà không gây lỗi Unicode.
+  - Tự động giải quyết đường dẫn dataset qua 3 vị trí linh hoạt: theo cấu hình của `config.yaml`, tìm cục bộ tại thư mục làm việc, hoặc tìm ở thư mục cha (phù hợp khi chạy trên môi trường Kaggle).
+  - Thống kê chi tiết số lượng và tỉ lệ phần trăm của từng nhãn cấp bậc gốc (Original) trong dataset.
+  - Áp dụng logic lọc và map nhãn của classifier để hiển thị bảng phân bố nhãn sau khi map về 5 lớp chính (Target Training).
+
+---
+
 ### `utils.py`
 **Hàm tiện ích dùng chung** giữa tất cả pipeline.
 
@@ -223,6 +235,15 @@ numpy>=1.24.0
 tqdm>=4.65.0
 pyyaml>=6.0
 ```
+
+---
+
+### Thư mục `data_test/`
+Chứa dữ liệu kiểm thử và các kịch bản kiểm thử mô hình.
+- **`data_xin_1000_dong.xlsx`**: File Excel đầu vào chứa 1000 dòng mô tả công việc (JD) cần chạy NER.
+- **`get_data.py`**: Tải dữ liệu từ Hugging Face, lọc, ghép các trường văn bản và lưu thành file Excel 1000 dòng để kiểm thử.
+- **`test_model.py`**: Chạy dự đoán thực thể (`SKILL` và `EXPERIENCE`) bằng mô hình GLiNER cục bộ, trích xuất dữ liệu, lưu kết quả ra file Excel dự đoán và in báo cáo thống kê.
+- **`README.md`**: Tài liệu chi tiết các hàm, vai trò và mối liên kết của các script trong thư mục `data_test/`.
 
 ---
 
@@ -327,3 +348,10 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Cập nhật [train_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_gliner.py) và [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py):
     - Đọc và áp dụng `save_total_limit` cùng `save_only_model` vào `TrainingArguments` của HF.
     - Tự động đồng bộ hóa thuộc tính `model.data_processor.max_len = max_length` từ cấu hình vào mô hình ngay sau khi load, giúp giải quyết triệt để cảnh báo `Sentence of length X has been truncated to 384` trên bản Large và Multi-task.
+- **2026-06-15 (Tích hợp chạy thử nghiệm trên file Excel)**:
+  - Cài đặt thư viện `openpyxl` để pandas tương thích với file Excel.
+  - Giải nén `pytorch_model.bin` từ `best_modelq.zip` và tạo file `config.json` để hoàn thiện thư mục mô hình cục bộ `d:\download\glinner\glinner-small_v2.5\`.
+  - Tạo script [test_model.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/test_model.py) để chạy dự đoán hàng loạt thực thể `SKILL` và `EXPERIENCE` trên file `data_xin_1000_dong.xlsx`, xuất kết quả phân tích kèm JSON thô ra file Excel mới.
+  - Viết tài liệu [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) cục bộ trong thư mục `data_test/` mô tả chi tiết chức năng và các liên kết tệp theo yêu cầu của global rule.
+- **2026-06-15 (Thêm script check_labels.py)**: Tạo script [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py) giúp kiểm tra và in bảng phân bố nhãn của dataset trước/sau khi map. Cấu hình mã hóa UTF-8 khi in và tự động nhận diện vị trí dataset linh hoạt trên cả local và Kaggle.
+

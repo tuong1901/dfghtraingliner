@@ -224,10 +224,10 @@ def train_gliner(cfg: dict):
     print(f"\n[GLiNER] Load model: {model_name}")
     model = GLiNER.from_pretrained(model_name)
     
-    # Đồng bộ hóa max_len của data processor với config để tránh cảnh báo bị cắt ngắn về 384
-    if hasattr(model, "data_processor") and hasattr(model.data_processor, "max_len"):
-        print(f"[GLiNER] Đồng bộ hóa max_len của processor từ {model.data_processor.max_len} thành {max_length}")
-        model.data_processor.max_len = max_length
+    # Đồng bộ hóa max_len của config với max_length để tránh cảnh báo bị cắt ngắn về 384
+    if hasattr(model, "config") and hasattr(model.config, "max_len"):
+        print(f"[GLiNER] Đồng bộ hóa max_len của config từ {model.config.max_len} thành {max_length}")
+        model.config.max_len = max_length
     
     # Monkey-patch để hỗ trợ gradient checkpointing trên các model GLiNER không có sẵn thuộc tính này
     if gcfg.get("gradient_checkpointing", True):
