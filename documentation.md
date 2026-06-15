@@ -191,14 +191,16 @@ outputs/benchmark_gliner/
 ---
 
 ### `check_labels.py`
-**Script kiểm tra và thống kê nhãn (level)** của dataset.
+**Script kiểm tra và thống kê chi tiết nhãn và siêu dữ liệu (metadata)** của dataset.
 
 **Tính năng/Hàm chính:**
 - **`main()`**: 
   - Tự động cấu hình mã hóa UTF-8 cho stdout trên môi trường Windows để hiển thị chính xác chữ tiếng Việt có dấu mà không gây lỗi Unicode.
   - Tự động giải quyết đường dẫn dataset qua 3 vị trí linh hoạt: theo cấu hình của `config.yaml`, tìm cục bộ tại thư mục làm việc, hoặc tìm ở thư mục cha (phù hợp khi chạy trên môi trường Kaggle).
-  - Thống kê chi tiết số lượng và tỉ lệ phần trăm của từng nhãn cấp bậc gốc (Original) trong dataset.
-  - Áp dụng logic lọc và map nhãn của classifier để hiển thị bảng phân bố nhãn sau khi map về 5 lớp chính (Target Training).
+  - Thống kê thông tin tổng quan của dataset (Metadata): Tổng số lượng mẫu (Job Descriptions), phân bố theo nhà tuyển dụng (Provider), và phân tích độ dài ký tự/số từ của các tin tuyển dụng (min, max, average).
+  - Thống kê chi tiết các thực thể NER gốc trong trường `label` bao gồm tổng số lượng thực thể, số lượng thực thể trung bình trên mỗi tin tuyển dụng, và tỉ lệ phân bố của từng loại thực thể (`SKILL`, `MAJOR`, `EXPERIENCE`).
+  - Thống kê chi tiết số lượng và tỉ lệ phần trăm của từng nhãn cấp bậc gốc (Original levels) trong dataset.
+  - Áp dụng logic lọc và map nhãn của classifier để hiển thị bảng phân bố nhãn sau khi map về 5 lớp chính (Target levels).
 
 ---
 
@@ -353,5 +355,5 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Giải nén `pytorch_model.bin` từ `best_modelq.zip` và tạo file `config.json` để hoàn thiện thư mục mô hình cục bộ `d:\download\glinner\glinner-small_v2.5\`.
   - Tạo script [test_model.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/test_model.py) để chạy dự đoán hàng loạt thực thể `SKILL` và `EXPERIENCE` trên file `data_xin_1000_dong.xlsx`, xuất kết quả phân tích kèm JSON thô ra file Excel mới.
   - Viết tài liệu [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) cục bộ trong thư mục `data_test/` mô tả chi tiết chức năng và các liên kết tệp theo yêu cầu của global rule.
-- **2026-06-15 (Thêm script check_labels.py)**: Tạo script [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py) giúp kiểm tra và in bảng phân bố nhãn của dataset trước/sau khi map. Cấu hình mã hóa UTF-8 khi in và tự động nhận diện vị trí dataset linh hoạt trên cả local và Kaggle.
+- **2026-06-15 (Thêm script check_labels.py)**: Tạo script [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py) giúp kiểm tra và in bảng phân bố nhãn của dataset trước/sau khi map, thống kê dữ liệu thực thể NER gốc (`SKILL`, `MAJOR`, `EXPERIENCE`), cùng với phân bố nhà tuyển dụng và độ dài văn bản. Cấu hình mã hóa UTF-8 khi in và tự động nhận diện vị trí dataset linh hoạt trên cả local và Kaggle.
 

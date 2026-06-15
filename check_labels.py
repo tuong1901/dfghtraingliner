@@ -50,12 +50,63 @@ def main():
     with open(dataset_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     
-    print(f"Tổng số mẫu: {len(data)}")
+    total_samples = len(data)
     
-    # 2. Count original labels
+    # 2. General metadata & Text statistics
+    providers = Counter()
+    lengths = []
+    word_counts = []
+    
+    for item in data:
+        providers[item.get("provider", "N/A")] += 1
+        text = item.get("text", "")
+        lengths.append(len(text))
+        word_counts.append(len(text.split()))
+        
+    print("\n" + "="*60)
+    print("  THÔNG TIN TỔNG QUAN VỀ DATASET GỐC (METADATA)")
+    print("="*60)
+    print(f"  - Tổng số Job Descriptions: {total_samples}")
+    print(f"  - Độ dài ký tự: ")
+    print(f"      + Trung bình : {sum(lengths)/total_samples:.1f} ký tự")
+    print(f"      + Ngắn nhất  : {min(lengths)} ký tự")
+    print(f"      + Dài nhất   : {max(lengths)} ký tự")
+    print(f"  - Số từ (khoảng trắng): ")
+    print(f"      + Trung bình : {sum(word_counts)/total_samples:.1f} từ")
+    print(f"      + Ngắn nhất  : {min(word_counts)} từ")
+    print(f"      + Dài nhất   : {max(word_counts)} từ")
+    print(f"  - Phân bố theo Nhà tuyển dụng / Nguồn (Provider):")
+    for prov, count in sorted(providers.items(), key=lambda x: x[1], reverse=True):
+        ratio = (count / total_samples) * 100
+        print(f"      + {prov:<10} : {count:<6} ({ratio:.2f}%)")
+
+    # 3. Count NER entities (label field)
+    ner_counts = Counter()
+    entities_per_jd = []
+    for item in data:
+        spans = item.get("label", [])
+        entities_per_jd.append(len(spans))
+        for span in spans:
+            if len(span) == 3:
+                ner_counts[span[2]] += 1
+                
+    total_entities = sum(ner_counts.values())
+    
+    print("\n" + "="*60)
+    print("  THỐNG KÊ THỰC THỂ NER GỐC (spans trong trường 'label')")
+    print("="*60)
+    print(f"  - Tổng số thực thể (spans): {total_entities}")
+    print(f"  - Số thực thể trung bình/JD: {total_entities/total_samples:.1f}")
+    print(f"  - Phân bố chi tiết các nhãn thực thể:")
+    print(f"      {'Nhãn thực thể':<20} | {'Số lượng':<10} | {'Tỉ lệ (%)':<10}")
+    print(f"      {'-'*47}")
+    for ent, count in sorted(ner_counts.items(), key=lambda x: x[1], reverse=True):
+        ratio = (count / total_entities) * 100
+        print(f"      {ent:<20} | {count:<10} | {ratio:.2f}%")
+    
+    # 4. Count original level labels
     orig_counts = Counter()
     for item in data:
-        # Standardize representation
         lvl = str(item.get("level", "")).upper().strip()
         if not lvl:
             orig_counts["[RỖNG/THIẾU]"] += 1
@@ -63,16 +114,15 @@ def main():
             orig_counts[lvl] += 1
             
     print("\n" + "="*60)
-    print("  BẢNG THỐNG KÊ NHÃN GỐC TRONG DATASET (ORIGINAL)")
+    print("  BẢNG THỐNG KÊ NHÂN PHÂN LOẠI CẤP BẬC GỐC (ORIGINAL LEVELS)")
     print("="*60)
     print(f"  {'Cấp bậc gốc':<20} | {'Số lượng':<10} | {'Tỉ lệ (%)':<10}")
     print("-" * 60)
-    total_samples = len(data)
     for lvl, count in sorted(orig_counts.items(), key=lambda x: x[1], reverse=True):
         ratio = (count / total_samples) * 100
         print(f"  {lvl:<20} | {count:<10} | {ratio:.2f}%")
         
-    # 3. Count mapped labels
+    # 5. Count mapped labels
     level_labels = [lv.upper() for lv in cfg["classifier"].get("level_labels", [
         "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "UNKNOWN"
     ])]
@@ -92,7 +142,7 @@ def main():
             mapped_counts[lvl] += 1
 
     print("\n" + "="*60)
-    print("  BẢNG THỐNG KÊ NHÃN SAU KHI MAP (TARGET TRAINING)")
+    print("  BẢNG THỐNG KÊ NHÃN PHÂN LOẠI CẤP BẬC SAU KHI MAP (TARGET LEVELS)")
     print("="*60)
     print(f"  {'Cấp bậc mới':<20} | {'Số lượng':<10} | {'Tỉ lệ (%)':<10}")
     print("-" * 60)
