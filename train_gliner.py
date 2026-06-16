@@ -327,6 +327,45 @@ def train_gliner(cfg: dict):
         json.dump({"entity_types": entity_types}, f, ensure_ascii=False, indent=2)
     print(f"[GLiNER] Entity types config: {config_path}")
     
+    # 8. Đánh giá khách quan trên tập TEST độc lập
+    print("\n[GLiNER] Đang tiến hành đánh giá khách quan trên tập TEST độc lập bằng model vừa train...")
+    model.eval()
+    
+    texts = [s["text"] for s in test_samples]
+    gold_entities_list = [s["entities"] for s in test_samples]
+    all_predictions = []
+    
+    eval_batch = gcfg.get("eval_batch_size", 8)
+    for i in range(0, len(texts), eval_batch):
+        batch_texts = texts[i:i+eval_batch]
+        try:
+            batch_preds = model.batch_predict_entities(batch_texts, entity_types, threshold=0.5)
+        except AttributeError:
+            batch_preds = [
+                model.predict_entities(t, entity_types, threshold=0.5)
+                for t in batch_texts
+            ]
+        all_predictions.extend(batch_preds)
+        
+    try:
+        from eval_gliner import compute_ner_confusion_matrix, print_confusion_matrix, compute_metrics_from_cm
+        cm = compute_ner_confusion_matrix(all_predictions, gold_entities_list, entity_types)
+        print_confusion_matrix(cm, entity_types + ["O"])
+        compute_metrics_from_cm(cm, entity_types)
+        
+        # Lưu kết quả
+        report_path = os.path.join(final_dir, "test_evaluation_report.json")
+        with open(report_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "entity_types": entity_types,
+                "threshold": 0.5,
+                "confusion_matrix": cm,
+                "evaluation_time": time.strftime("%Y-%m-%d %H:%M:%S")
+            }, f, ensure_ascii=False, indent=2)
+        print(f"[✓] Đã xuất báo cáo đánh giá tập TEST tại: {report_path}")
+    except Exception as e:
+        print(f"[CẢNH BÁO] Không thể thực hiện đánh giá Confusion Matrix: {e}")
+        
     return final_dir
 
 
