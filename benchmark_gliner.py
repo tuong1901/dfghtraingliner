@@ -429,6 +429,7 @@ def run_single_gliner_benchmark(
     benchmark_cfg: dict,
     train_samples: List[Dict],
     val_samples: List[Dict],
+    test_samples: List[Dict],
     entity_types: List[str],
     seed: int,
 ) -> Dict[str, Any]:
@@ -559,7 +560,7 @@ def run_single_gliner_benchmark(
         print(f"  Threshold F1={eval_threshold} | nDCG low_threshold={low_threshold}")
 
         baseline_metrics = evaluate_gliner(
-            model, val_samples, entity_types,
+            model, test_samples, entity_types,
             threshold=eval_threshold,
             batch_size=eval_batch,
             ndcg_ks=[ndcg_k],
@@ -676,7 +677,7 @@ def run_single_gliner_benchmark(
         ft_model.eval()
 
         ft_metrics = evaluate_gliner(
-            ft_model, val_samples, entity_types,
+            ft_model, test_samples, entity_types,
             threshold=eval_threshold,
             batch_size=eval_batch,
             ndcg_ks=[ndcg_k],
@@ -766,6 +767,7 @@ def run_best_model_full_pipeline(
     benchmark_cfg: dict,
     train_samples: List[Dict],
     val_samples: List[Dict],
+    test_samples: List[Dict],
     entity_types: List[str],
     seed: int,
     full_epochs: int = 5,
@@ -848,7 +850,7 @@ def run_best_model_full_pipeline(
         threshold_results = []
         for thr in thresholds:
             m = evaluate_gliner(
-                model, val_samples, entity_types,
+                model, test_samples, entity_types,
                 threshold=thr,
                 batch_size=eval_batch,
                 ndcg_ks=[ndcg_k],
@@ -1236,20 +1238,30 @@ def run_all_gliner_benchmarks(cfg: dict) -> List[Dict[str, Any]]:
     print("[Benchmark GLiNER] Load dataset...")
     train_data, val_data = load_dataset(
         dataset_path=data_cfg["dataset_path"],
-        val_ratio=data_cfg.get("val_ratio", 0.1),
+        val_ratio=data_cfg.get("val_ratio", 0.2), # mặc định 0.2 để chia 10% val / 10% test
         max_samples=data_cfg.get("max_samples", None),
         seed=seed,
     )
+
+    # Chia val_data thành val_data và test_data (50% validation, 50% test)
+    import random
+    random.seed(seed)
+    random.shuffle(val_data)
+    split_idx = len(val_data) // 2
+    test_data = val_data[:split_idx]
+    val_data = val_data[split_idx:]
+    print(f"[Benchmark GLiNER] Thực tế split -> Val: {len(val_data)} | Test: {len(test_data)}")
 
     # 2. Chuyển sang GLiNER format
     max_length = bench_cfg.get("max_length", 1024)
     train_samples = prepare_gliner_samples(train_data, entity_types, max_length)
     val_samples   = prepare_gliner_samples(val_data,   entity_types, max_length)
-    print(f"[Benchmark GLiNER] Train: {len(train_samples)} | Val: {len(val_samples)}")
+    test_samples  = prepare_gliner_samples(test_data,  entity_types, max_length)
+    print(f"[Benchmark GLiNER] Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
 
     # 3. Data analysis
     if bench_cfg.get("analyze_data", True):
-        analyze_entity_distribution(train_samples + val_samples, entity_types)
+        analyze_entity_distribution(train_samples + val_samples + test_samples, entity_types)
 
     # 4. Danh sách model
     model_list = bench_cfg.get("models", [])
@@ -1278,6 +1290,7 @@ def run_all_gliner_benchmarks(cfg: dict) -> List[Dict[str, Any]]:
             benchmark_cfg=bench_cfg,
             train_samples=train_samples,
             val_samples=val_samples,
+            test_samples=test_samples,
             entity_types=entity_types,
             seed=seed,
         )
@@ -1311,6 +1324,7 @@ def run_all_gliner_benchmarks(cfg: dict) -> List[Dict[str, Any]]:
             benchmark_cfg=bench_cfg,
             train_samples=train_samples,
             val_samples=val_samples,
+            test_samples=test_samples,
             entity_types=entity_types,
             seed=seed,
         )

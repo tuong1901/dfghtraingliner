@@ -203,10 +203,19 @@ def train_gliner(cfg: dict):
     # 1. Load dataset
     train_data, val_data = load_dataset(
         dataset_path=data_cfg["dataset_path"],
-        val_ratio=data_cfg.get("val_ratio", 0.1),
+        val_ratio=data_cfg.get("val_ratio", 0.2), # mặc định 0.2 để chia 10% val / 10% test
         max_samples=data_cfg.get("max_samples", None),
         seed=seed,
     )
+    
+    # Chia val_data thành val_data và test_data (50% validation, 50% test)
+    import random
+    random.seed(seed)
+    random.shuffle(val_data)
+    split_idx = len(val_data) // 2
+    test_data = val_data[:split_idx]
+    val_data = val_data[split_idx:]
+    print(f"[GLiNER] Thực tế split -> Val: {len(val_data)} | Test: {len(test_data)}")
     
     # 2. Chuẩn bị samples
     entity_types = gcfg.get("entity_types", ["SKILL", "MAJOR", "EXPERIENCE"])
@@ -216,8 +225,9 @@ def train_gliner(cfg: dict):
     print(f"[GLiNER] Chuẩn bị train samples...")
     train_samples = prepare_gliner_samples(train_data, entity_types, max_length)
     val_samples = prepare_gliner_samples(val_data, entity_types, max_length)
+    test_samples = prepare_gliner_samples(test_data, entity_types, max_length)
     
-    print(f"[GLiNER] Train: {len(train_samples)} | Val: {len(val_samples)}")
+    print(f"[GLiNER] Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
     
     # 3. Load model
     model_name = gcfg.get("model_name", "urchade/gliner_small-v2.1")

@@ -104,7 +104,7 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
 **Hàm chính:**
 - **`prepare_gliner_samples(data, entity_types, max_length)`**: Chuyển `cleaned_dataset.json` → GLiNER format `{text, entities: [{start, end, label}]}`. Lọc tự động label không trong entity_types, kiểm tra bounds, bỏ span rỗng
 - **`get_gliner_data_collator(model)`**: Tự động nhận diện phiên bản `gliner` (v0.1.x hay v0.2.x) để trả về class data collator thích hợp (`DataCollator`, `SpanDataCollator`, hoặc `BiEncoderSpanDataCollator`)
-- **`train_gliner(cfg)`**: Load GLiNER từ HuggingFace, setup Trainer riêng của GLiNER (dùng dynamic collator), train với fp16 nếu có GPU, lưu final model
+- **`train_gliner(cfg)`**: Load GLiNER từ HuggingFace, setup Trainer riêng của GLiNER (dùng dynamic collator). Tải dataset và chia `val_ratio` (mặc định 20% trong config) thành 2 phần bằng nhau: 50% làm tập Validation (để chọn checkpoint tốt nhất) và 50% làm tập Test độc lập. Huấn luyện với fp16 nếu có GPU, lưu và xuất ra final model.
 - **`quick_test_gliner(model_dir, entity_types)`**: Test nhanh 1 câu mẫu sau train
 
 **Output:** `./outputs/gliner/final_model/` + `entity_types.json`
@@ -182,9 +182,9 @@ Thiết kế phù hợp với data:
 - **`compute_ner_metrics(predictions, gold_labels, entity_types)`**: Tính P/R/F1 per entity type dùng exact span match (char-level). Không dùng GLiNER’s built-in eval để có per-type detail
 - **`evaluate_gliner(model, val_samples, entity_types, threshold, batch_size, ndcg_ks=[5,10], low_threshold)`**: Batch inference + tính metrics. Dùng 2 threshold: `threshold` (strict, cho F1) và `low_threshold` (loose, cho nDCG ranking). Trả về `{overall_f1, SKILL_f1, EXPERIENCE_f1, ndcg_at_5, ndcg_at_10, infer_speed}`
 - **`analyze_entity_distribution(samples, entity_types)`**: Phân tích phân bố entity trong dataset (count per type, span length, text length) → khuyến nghị config
-- **`run_single_gliner_benchmark(model_cfg, ...)`**: Pipeline đầy đủ cho 1 model: (1) Baseline eval (F1+nDCG@5+nDCG@10 trước FT) → (2) Fine-tune → (3) Post-FT eval → (4) In bảng so sánh ΔF1 + ΔnDCG
-- **`run_best_model_full_pipeline(best_result, ...)`**: Threshold sensitivity analysis (0.3/0.4/0.5/0.6) trên model tốt nhất, lưu báo cáo đầy đủ
-- **`run_all_gliner_benchmarks(cfg)`**: Dưyệt tất cả model enabled, tổng hợp bảng kết quả, in + lưu
+- **`run_single_gliner_benchmark(...)`**: Baseline eval trên test set → fine-tune (giám sát trên val set) → post-FT eval trên test set cho 1 model
+- **`run_best_model_full_pipeline(...)`**: Threshold sensitivity analysis trên test set cho model tốt nhất
+- **`run_all_gliner_benchmarks(cfg)`**: Load dataset, split phần validation thành 50% val / 50% test độc lập và điều phối toàn bộ benchmark model enabled, tổng hợp bảng kết quả, in + lưu
 - **`print_gliner_results_table(results, entity_types)`**: Bảng ASCII per-type F1 + nDCG@5 + nDCG@10 + Delta so sánh Baseline vs Post-FT
 - **`save_gliner_results(results, entity_types, output_dir)`**: Lưu `benchmark_gliner_results.csv` (cả Baseline + Post-FT fields) + `.txt`
 
@@ -390,6 +390,12 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 - **2026-06-16 (Hỗ trợ huấn luyện kèm nhãn MAJOR và tiếp tục train từ model có sẵn)**:
   - Tạo tệp cấu hình mới [config_medium_v25_major.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_medium_v25_major.yaml) để huấn luyện mô hình với 3 thực thể nhằm giải quyết vấn đề nhãn MAJOR bị gán nhầm thành SKILL ở đầu ra. Hỗ trợ truyền đường dẫn cục bộ để huấn luyện tiếp tục trên model đã lưu.
   - Cập nhật tài liệu tổng thể [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+- **2026-06-16 (Dọn dẹp code thừa và Tách biệt tập Test độc lập cho GLiNER)**:
+  - Xóa bỏ các tệp nháp dư thừa không còn sử dụng: `clean_labels_local.py` và `convert_ner_format.py` khỏi thư mục `data_test/`.
+  - Tạo tệp cấu hình mới [config_small_v25_major.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_small_v25_major.yaml) chuyên biệt cho việc train GLiNER Small v2.5 với nhãn MAJOR.
+  - Cập nhật [train_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_gliner.py) và [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py) để phân tách nhỏ tập dữ liệu validation (tỉ lệ mặc định 20% trong config) làm 2 phần bằng nhau: 50% làm tập Validation thực tế (cho Trainer và early stopping) và 50% làm tập Test độc lập hoàn toàn (cho việc đánh giá F1/nDCG cuối cùng). Logic này giúp triệt tiêu hoàn toàn hiện tượng "data leakage" và đảm bảo tính đánh giá khách quan tương tự như mô hình Classifier.
+  - Cập nhật đồng bộ các tài liệu chính [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/README.md) ở root, [data_test/README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) và [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+
 
 
 
