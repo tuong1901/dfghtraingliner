@@ -220,7 +220,7 @@ def run_single_benchmark(
 
         # --- Training Loop ---
         print(f"[{model_display_name}] Bắt đầu train ({num_epochs} epochs)...")
-        best_f1 = 0.0
+        best_f1 = -1.0
         best_metrics = {}
         best_model_dir = os.path.join(model_output_dir, "best_model")
         global_step = 0

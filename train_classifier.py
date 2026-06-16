@@ -136,7 +136,7 @@ class JobLevelDataset:
         
         elif self.strategy == "tail":
             # Tokenize không truncate trước, rồi lấy tail
-            tokens = self.tokenizer(text, add_special_tokens=False)["input_ids"]
+            tokens = self.tokenizer(text, add_special_tokens=False, verbose=False)["input_ids"]
             # Giữ [CLS] ở đầu, max_length-2 token cuối, [SEP] ở cuối
             max_tokens = self.max_length - 2
             if len(tokens) > max_tokens:
@@ -158,7 +158,7 @@ class JobLevelDataset:
             }
         
         else:  # "head+tail" (mặc định)
-            tokens = self.tokenizer(text, add_special_tokens=False)["input_ids"]
+            tokens = self.tokenizer(text, add_special_tokens=False, verbose=False)["input_ids"]
             max_tokens = self.max_length - 2  # trừ [CLS] và [SEP]
             
             if len(tokens) <= max_tokens:
@@ -295,6 +295,24 @@ def evaluate(
     print("\n[Classifier] Classification Report:")
     print(report)
     
+    # Confusion Matrix
+    try:
+        from sklearn.metrics import confusion_matrix
+        cm = confusion_matrix(all_labels, all_preds, labels=present_labels)
+        print("[Classifier] Confusion Matrix:")
+        max_len = max(len(name) for name in present_names)
+        max_len = max(max_len, 11) # minimum width for "True \ Pred" column
+        
+        header = f"{'True \\ Pred':<{max_len}} |" + "".join(f" {present_names[i]:<{max_len}}" for i in range(len(present_labels)))
+        print(header)
+        print("-" * len(header))
+        for i in range(len(present_labels)):
+            row_str = f"{present_names[i]:<{max_len}} |" + "".join(f" {cm[i, j]:<{max_len}}" for j in range(len(present_labels)))
+            print(row_str)
+        print()
+    except Exception as e:
+        print(f"[CẢNH BÁO] Không thể in confusion matrix: {e}")
+    
     model.train()
     return {
         "loss": avg_loss,
@@ -316,7 +334,7 @@ class OrdinalLoss(nn.Module):
         self.distance_matrix = None
         if level_labels is not None:
             num_labels = len(level_labels)
-            ordered_levels = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD", "MANAGER", "DIRECTOR", "EXPERT"]
+            ordered_levels = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD", "LEAD_PLUS", "MANAGER", "DIRECTOR", "EXPERT"]
             
             level_to_order_idx = {}
             for idx, lvl in enumerate(level_labels):
@@ -544,7 +562,7 @@ def train_classifier(cfg: dict):
     print(f"  Total steps: {total_steps} | Warmup: {warmup_steps}")
     print(f"  Eval mỗi {eval_steps} steps | Log mỗi {logging_steps} steps\n")
     
-    best_f1 = 0.0
+    best_f1 = -1.0
     best_model_dir = os.path.join(output_dir, "best_model")
     global_step = 0
     start_time = time.time()

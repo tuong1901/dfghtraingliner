@@ -124,22 +124,25 @@ def main():
         
     # 5. Count mapped labels
     level_labels = [lv.upper() for lv in cfg["classifier"].get("level_labels", [
-        "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "UNKNOWN"
+        "INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "MANAGER", "LEAD_PLUS"
     ])]
     
     mapped_counts = Counter()
     valid_levels = set(level_labels)
-    has_unknown = "UNKNOWN" in valid_levels
     
     for item in data:
         lvl = str(item.get("level", "")).upper().strip()
-        if lvl not in valid_levels:
-            if has_unknown:
-                mapped_counts["UNKNOWN"] += 1
-            else:
-                mapped_counts["[BỊ LỌC BỎ]"] += 1
+        if lvl in ["LEAD", "PRINCIPAL", "ARCHITECT", "DIRECTOR"]:
+            mapped_lvl = "LEAD_PLUS"
+        elif lvl in ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "MANAGER"]:
+            mapped_lvl = lvl
         else:
-            mapped_counts[lvl] += 1
+            mapped_lvl = "[BỊ LỌC BỎ]"
+            
+        if mapped_lvl in valid_levels:
+            mapped_counts[mapped_lvl] += 1
+        else:
+            mapped_counts["[BỊ LỌC BỎ]"] += 1
 
     print("\n" + "="*60)
     print("  BẢNG THỐNG KÊ NHÃN PHÂN LOẠI CẤP BẬC SAU KHI MAP (TARGET LEVELS)")

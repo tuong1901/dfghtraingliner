@@ -47,7 +47,7 @@ gliner:
 # LEVEL CLASSIFIER CONFIG
 # ============================================================
 classifier:
-  model_name: "distilbert-base-uncased" # Nhẹ nhất
+  model_name: "prajjwal1/bert-tiny" # Nhẹ nhất
   level_labels:
     - "INTERN"
     - "FRESHER"
@@ -55,7 +55,7 @@ classifier:
     - "MIDDLE"
     - "SENIOR"
     - "MANAGER"
-    - "UNKNOWN"
+    - "LEAD_PLUS"
   lambda_penalty: 1.0
 
   # Hyperparameters
@@ -91,11 +91,11 @@ benchmark:
     - "MIDDLE"
     - "SENIOR"
     - "MANAGER"
-    - "UNKNOWN"
+    - "LEAD_PLUS"
   lambda_penalty: 1.0
   models:
     - name: "DistilBERT"
-      model_name: "distilbert-base-uncased"
+      model_name: "prajjwal1/bert-tiny"
       train_batch_size: 4
       eval_batch_size: 4
       learning_rate: 3.0e-5

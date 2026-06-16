@@ -7,7 +7,7 @@ Thư mục này chứa toàn bộ code training và benchmark cho **2 model**:
    - **Đầu ra**: Spans `[start, end, label]` với label ∈ `{SKILL, EXPERIENCE}`
 2. **Level Classifier** – Phân loại cấp bậc công việc
    - Đầu vào: `text` (chuỗi Job Description thuần)
-   - Đầu ra: `level` ∈ `{INTERN, FRESHER, JUNIOR, MIDDLE, SENIOR, MANAGER, UNKNOWN}` (các lớp thiểu số dưới 3% như LEAD, DIRECTOR, EXECUTIVE tự động được map về UNKNOWN)
+   - Đầu ra: `level` ∈ `{INTERN, FRESHER, JUNIOR, MIDDLE, SENIOR, MANAGER, LEAD_PLUS}` (các nhãn cao như LEAD, PRINCIPAL, ARCHITECT, DIRECTOR được gộp thành LEAD_PLUS, còn nhãn UNKNOWN thật hoặc EXECUTIVE bị loại bỏ)
 
 Dataset đầu vào: `../cleaned_dataset.json`
 
@@ -312,8 +312,8 @@ train/
 - ✅ `EXPERIENCE`: Số năm kinh nghiệm ("3+ years", "Minimum 5 years"...)
 - ❌ `MAJOR`: **Không train** – đã bỏ khỏi GLiNER entity_types
 
-### Classifier: Level Classes (7 lớp chính, ngưỡng tần suất >= 3%)
-`INTERN` → `FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `MANAGER` → `UNKNOWN` (Các nhãn khác dưới 3% như `LEAD`, `DIRECTOR`, `EXECUTIVE` tự động được chuẩn hóa về `UNKNOWN` lúc load dataset).
+### Classifier: Level Classes (7 lớp chính, Option A)
+`INTERN` → `FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `MANAGER` → `LEAD_PLUS` (Các nhãn cao gồm `LEAD`, `PRINCIPAL`, `ARCHITECT`, `DIRECTOR` được gộp thành `LEAD_PLUS`, còn nhãn `UNKNOWN` thực tế và các nhãn khác như `EXECUTIVE` tự động bị loại bỏ khỏi dataset).
 
 ### Truncation strategy
 JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
@@ -394,7 +394,16 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Xóa bỏ các tệp nháp dư thừa không còn sử dụng: `clean_labels_local.py` và `convert_ner_format.py` khỏi thư mục `data_test/`.
   - Tạo tệp cấu hình mới [config_small_v25_major.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_small_v25_major.yaml) chuyên biệt cho việc train GLiNER Small v2.5 với nhãn MAJOR.
   - Cập nhật [train_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_gliner.py) và [benchmark_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_gliner.py) để phân tách nhỏ tập dữ liệu validation (tỉ lệ mặc định 20% trong config) làm 2 phần bằng nhau: 50% làm tập Validation thực tế (cho Trainer và early stopping) và 50% làm tập Test độc lập hoàn toàn (cho việc đánh giá F1/nDCG cuối cùng). Logic này giúp triệt tiêu hoàn toàn hiện tượng "data leakage" và đảm bảo tính đánh giá khách quan tương tự như mô hình Classifier.
-  - Cập nhật đồng bộ các tài liệu chính [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/README.md) ở root, [data_test/README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) và [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+- **2026-06-16 (Khắc phục lỗi nạp mô hình cũ khi chạy thử debug)**:
+  - Cập nhật [train_classifier.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_classifier.py) và [benchmark_classifier.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_classifier.py): Thay đổi khởi tạo `best_f1` từ `0.0` thành `-1.0`. Điều này đảm bảo rằng mô hình luôn được lưu lại ở epoch đầu tiên ngay cả khi chỉ số F1 là 0.0, tránh lỗi nạp phải mô hình cũ/stale khi chạy thử chế độ debug (dry-run) với số mẫu cực nhỏ.
+  - Cập nhật tài liệu chính [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+- **2026-06-16 (Tích hợp LEAD_PLUS, khử cảnh báo độ dài và in Confusion Matrix)**:
+  - Cập nhật [utils.py](file:///c:/Users/loiha/Videos/dfghtraingliner/utils.py) và [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py): Triển khai ánh xạ nhãn Option A cho Level Classifier. Gộp các nhãn `LEAD`, `PRINCIPAL`, `ARCHITECT`, `DIRECTOR` thành `LEAD_PLUS`, đồng thời loại bỏ/xóa hoàn toàn các mẫu có nhãn `UNKNOWN` thực tế và các nhãn khác ngoài danh sách mục tiêu.
+  - Cập nhật [train_classifier.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_classifier.py):
+    - Khử cảnh báo độ dài chuỗi của Tokenizer bằng cách truyền `verbose=False` vào các lời gọi tokenizer.
+    - Cập nhật `ordered_levels` trong `OrdinalLoss` để hỗ trợ tính toán khoảng cách phạt tuần tự cho `LEAD_PLUS`.
+    - Tích hợp tính toán và hiển thị Confusion Matrix dạng bảng ASCII trực tiếp sau Classification Report trong hàm `evaluate()`.
+  - Cập nhật [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) và [config_debug.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_debug.yaml) để sử dụng danh sách nhãn mới (thay UNKNOWN bằng LEAD_PLUS).
 
 
 

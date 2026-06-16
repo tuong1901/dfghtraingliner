@@ -82,7 +82,7 @@ classifier:
     - "MIDDLE"
     - "SENIOR"
     - "MANAGER"
-    - "UNKNOWN"
+    - "LEAD_PLUS"
 
   # Hệ số phạt khoảng cách khi học sai cấp bậc tuần tự (0.0 = không dùng)
   lambda_penalty: 1.0
@@ -138,7 +138,7 @@ benchmark:
     - "MIDDLE"
     - "SENIOR"
     - "MANAGER"
-    - "UNKNOWN"
+    - "LEAD_PLUS"
 
   # Hệ số phạt khoảng cách khi học sai cấp bậc tuần tự (0.0 = không dùng)
   lambda_penalty: 1.0

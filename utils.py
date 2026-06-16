@@ -148,7 +148,6 @@ def load_dataset(
     
     # Xử lý lọc và map level on-the-fly để tối ưu bộ nhớ
     valid_levels = set(lv.upper() for lv in level_labels) if level_labels is not None else None
-    has_unknown = "UNKNOWN" in valid_levels if valid_levels is not None else False
     
     data = []
     for d in raw_generator:
@@ -159,11 +158,19 @@ def load_dataset(
         # Lọc và map level
         if valid_levels is not None:
             lvl = str(d.get("level", "")).upper().strip()
-            if lvl not in valid_levels:
-                if has_unknown:
-                    d["level"] = "UNKNOWN"
-                else:
-                    continue
+            # Map raw level to target level (Option A)
+            if lvl in ["LEAD", "PRINCIPAL", "ARCHITECT", "DIRECTOR"]:
+                mapped_lvl = "LEAD_PLUS"
+            elif lvl in ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "MANAGER"]:
+                mapped_lvl = lvl
+            else:
+                # Bỏ qua nhãn UNKNOWN thật, EXECUTIVE, hoặc rỗng
+                continue
+                
+            if mapped_lvl in valid_levels:
+                d["level"] = mapped_lvl
+            else:
+                continue
         data.append(d)
         
     print(f"[Data] Tổng số sample hợp lệ sau lọc: {len(data)}")
