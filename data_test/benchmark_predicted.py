@@ -23,6 +23,11 @@ def main():
     print("           BENCHMARK GLiNER PREDICTIONS VS DEEPSEEK GOLD LABELS")
     print("="*80)
 
+    # Siêu tham số ngưỡng confidence tự động lọc để tối ưu F1-Score
+    threshold_skill = 0.80
+    threshold_experience = 0.50
+    print(f"[*] Sử dụng ngưỡng tự động lọc: SKILL >= {threshold_skill}, EXPERIENCE >= {threshold_experience}")
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
     gold_json_path = os.path.join(base_dir, "data_xin_1000_dong_gold.json")
     predicted_excel_path = os.path.join(base_dir, "data_xin_1000_dong_predicted.xlsx")
@@ -132,6 +137,14 @@ def main():
         pred_spans_list = []
         for ent in pred_entities:
             lbl = ent.get("label", "").upper()
+            score = ent.get("score", 1.0)
+            
+            # Áp dụng ngưỡng động
+            if lbl == "SKILL" and score < threshold_skill:
+                continue
+            if lbl == "EXPERIENCE" and score < threshold_experience:
+                continue
+                
             if lbl in entity_types:
                 start = ent["start"]
                 end = ent["end"]

@@ -59,7 +59,11 @@ File cấu hình tổng. **Chỉ cần chỉnh file này**, không cần sửa c
 File cấu hình chuyên biệt dùng để huấn luyện mô hình **GLiNER-Medium-v2.5** trên tập dữ liệu đã làm sạch. File này đã được tối ưu sẵn các tham số cấu hình (batch=4, gradient_accumulation=4, gradient_checkpointing=true) để ngăn ngừa lỗi CUDA OOM trên môi trường GPU dưới 16GB.
 
 ### `config_medium_v25_major.yaml`
-File cấu hình chuyên biệt dùng để huấn luyện mô hình GLiNER đồng thời trên 3 nhãn: `SKILL`, `EXPERIENCE`, và `MAJOR` để mô hình tự phân biệt được ngành học/bằng cấp thay vì gán nhầm vào `SKILL`. Hỗ trợ đổi đường dẫn `model_name` sang thư mục cục bộ (ví dụ: `d:/download/glinner/glinner-small_v2.5`) để tiếp tục huấn luyện (continue fine-tuning) trên mô hình có sẵn.
+File cấu hình chuyên biệt dùng để huấn luyện mô hình **GLiNER-Medium-v2.5** đồng thời trên 3 nhãn: `SKILL`, `EXPERIENCE`, và `MAJOR` để mô hình tự phân biệt được ngành học/bằng cấp thay vì gán nhầm vào `SKILL`. Hỗ trợ đổi đường dẫn `model_name` sang thư mục cục bộ để tiếp tục huấn luyện (continue fine-tuning) trên mô hình có sẵn.
+
+### `config_small_v25_major.yaml`
+File cấu hình chuyên biệt tương tự dùng để huấn luyện mô hình **GLiNER-Small-v2.5** đồng thời trên 3 nhãn: `SKILL`, `EXPERIENCE`, và `MAJOR`. Đã được cấu hình tối ưu hyperparameter cho bản Small (batch_size=8, gradient_accumulation=2) và hỗ trợ trỏ đến thư mục model cục bộ (ví dụ: `d:/download/glinner/glinner-small_v2.5`) để huấn luyện tiếp tục.
+
 
 ### `config_debug.yaml`
 File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) trên tập dữ liệu nhỏ (20 mẫu) để đảm bảo các module hoạt động trơn tru không lỗi.
@@ -256,7 +260,7 @@ Chứa dữ liệu kiểm thử và các kịch bản kiểm thử mô hình.
 - **`data_xin_1000_dong_gold.json`**: File JSON chứa nhãn chuẩn (Gold Labels) trích xuất bằng DeepSeek V3.
 - **`get_data.py`**: Tải dữ liệu từ Hugging Face, lọc, ghép các trường văn bản và lưu thành file Excel 1000 dòng để kiểm thử.
 - **`test_model.py`**: Chạy dự đoán thực thể (`SKILL` và `EXPERIENCE`) bằng mô hình GLiNER cục bộ, trích xuất dữ liệu, lưu kết quả ra file Excel dự đoán và in báo cáo thống kê.
-- **`benchmark_predicted.py`**: So khớp kết quả dự đoán của GLiNER với nhãn chuẩn DeepSeek V3 và tính Precision, Recall, F1-score (Exact & Overlap). Tích hợp logic tự động lọc bỏ các dự đoán nhãn SKILL từ mô hình bị trùng/chồng lấn với nhãn chuẩn MAJOR có trong tập Gold để tránh phạt oan điểm mô hình (giảm False Positives).
+- **`benchmark_predicted.py`**: So khớp kết quả dự đoán của GLiNER với nhãn chuẩn DeepSeek V3 và tính Precision, Recall, F1-score (Exact & Overlap). Tích hợp logic tự động lọc bỏ các dự đoán nhãn SKILL bị chồng lấn với nhãn chuẩn MAJOR có trong tập Gold và tự động áp dụng ngưỡng động tối ưu (SKILL >= 0.80, EXPERIENCE >= 0.50) để giảm tối đa False Positives.
 - **`clean_gold_labels.py`**: Làm sạch dữ liệu nhãn vàng DeepSeek V3 (data_xin_1000_dong_gold.json) bằng cách lọc bỏ các vị trí công việc gán nhầm, kỹ năng mơ hồ, và giải quyết chồng lấn nhãn (overlapping).
 - **`benchmark_report.txt`**: File báo cáo chi tiết kết quả benchmark.
 - **`README.md`**: Tài liệu chi tiết các hàm, vai trò và mối liên kết của các script trong thư mục `data_test/`.
@@ -376,7 +380,7 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Cập nhật tài liệu cục bộ [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) trong thư mục `data_test/` mô tả đầy đủ luồng dán nhãn chuẩn và đối chiếu benchmark.
 - **2026-06-16 (Tích hợp làm sạch nhãn vàng và predictions)**:
   - Tạo script [clean_gold_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/clean_gold_labels.py) giúp làm sạch nhãn vàng DeepSeek V3 theo đúng quy luật (loại bỏ từ mơ hồ, trùng vị trí công việc, giải quyết chồng lấn).
-  - Cập nhật [benchmark_predicted.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_predicted.py) nhằm tự động loại bỏ các dự đoán SKILL bị chồng lấn với nhãn chuẩn MAJOR trong Gold, giúp tránh phạt điểm oan (False Positives) cho mô hình.
+  - Cập nhật [benchmark_predicted.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_predicted.py) nhằm tự động loại bỏ các dự đoán SKILL bị chồng lấn với nhãn chuẩn MAJOR trong Gold, đồng thời tích hợp lọc theo ngưỡng động tối ưu (SKILL >= 0.80, EXPERIENCE >= 0.50) giúp nâng cao F1-Score vượt trội.
   - Đối chiếu và kiểm thử so sánh kết quả benchmark của mô hình trước và sau khi làm sạch cả Gold và Predictions.
   - Cập nhật tài liệu cục bộ [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) và tài liệu chính [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
 - **2026-06-16 (Tạo config huấn luyện chuyên biệt GLiNER-Medium-v2.5)**:

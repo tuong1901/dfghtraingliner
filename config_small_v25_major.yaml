@@ -1,5 +1,5 @@
 # ============================================================
-# CONFIG CHUYÊN BIỆT - HUẤN LUYỆN GLiNER KÈM NHÃN MAJOR
+# CONFIG CHUYÊN BIỆT - HUẤN LUYỆN GLiNER SMALL V2.5 KÈM NHÃN MAJOR
 # ============================================================
 
 run:
@@ -24,7 +24,7 @@ data:
 gliner:
   # LƯU Ý: Bạn có thể đổi đường dẫn này thành thư mục chứa model của bạn để train tiếp, ví dụ:
   # model_name: "d:/download/glinner/glinner-small_v2.5"
-  model_name: "/kaggle/input/models/n107hoangtuong/glinner-small-v2-5/transformers/default/1/pytorch_model.bin"
+  model_name: "gliner-community/gliner_small-v2.5"
 
   # Thêm nhãn MAJOR vào quá trình train để model học cách phân biệt Ngành Học với Kỹ Năng (SKILL).
   # Khi trích xuất, ta sẽ bỏ qua nhãn MAJOR, chỉ giữ lại SKILL và EXPERIENCE ở đầu ra.
@@ -33,20 +33,20 @@ gliner:
     - "EXPERIENCE"
     - "MAJOR"
 
-  # Hyperparameters tối ưu tránh lỗi CUDA OOM
+  # Hyperparameters tối ưu cho Small v2.5
   num_epochs: 5
-  train_batch_size: 4             
-  eval_batch_size: 4
+  train_batch_size: 8             
+  eval_batch_size: 8
   learning_rate: 5.0e-5
   weight_decay: 0.01
   warmup_ratio: 0.1
   max_length: 512                 
   max_neg_type_ratio: 1
-  gradient_accumulation_steps: 4  
+  gradient_accumulation_steps: 2  
   gradient_checkpointing: true    
 
   # Cấu hình lưu trữ và logs
-  output_dir: "./outputs/gliner_medium_v25_major"
+  output_dir: "./outputs/gliner_small_v25_major"
   save_steps: 500
   eval_steps: 500
   save_total_limit: 1             
