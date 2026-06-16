@@ -38,6 +38,7 @@ import sys
 import json
 import argparse
 import time
+import random
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from collections import Counter
@@ -418,6 +419,15 @@ def train_classifier(cfg: dict):
         level_labels=level_labels,
     )
     
+    # Chia val_data thành val_data và test_data (50% validation, 50% test)
+    # Giúp đánh giá khách quan trên tập test chưa từng dùng để chọn best model.
+    random.seed(seed)
+    random.shuffle(val_data)
+    split_idx = len(val_data) // 2
+    test_data = val_data[:split_idx]
+    val_data = val_data[split_idx:]
+    print(f"[Classifier] Thực tế split -> Val: {len(val_data)} | Test: {len(test_data)}")
+    
     # 3. Tokenizer
     model_name = ccfg.get("model_name", "bert-base-uncased")
     max_length = ccfg.get("max_length", 512)
@@ -652,6 +662,31 @@ def train_classifier(cfg: dict):
             "label2id": label2id,
         }, f, ensure_ascii=False, indent=2)
     print(f"[Classifier] Label map: {label_map_path}")
+    
+    # 9. Đánh giá khách quan trên tập test bằng best model vừa lưu
+    print(f"\n[Classifier] Đánh giá khách quan trên tập TEST thực tế bằng best model...")
+    best_model = AutoModelForSequenceClassification.from_pretrained(best_model_dir).to(device)
+    best_tokenizer = AutoTokenizer.from_pretrained(best_model_dir)
+    
+    test_dataset = JobLevelDataset(
+        test_data, best_tokenizer, level_labels, max_length, truncation_strategy
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=eval_batch_size,
+        shuffle=False,
+        collate_fn=collate_fn,
+        num_workers=0,
+    )
+    
+    test_metrics = evaluate(best_model, test_loader, device, level_labels, loss_fct=loss_fct)
+    print("\n" + "="*60)
+    print("  KẾT QUẢ ĐÁNH GIÁ TRÊN TẬP TEST ĐỘC LẬP (TEST SET)")
+    print("="*60)
+    print(f"  Test Loss: {test_metrics['loss']:.4f}")
+    print(f"  Test Accuracy: {test_metrics['accuracy']:.4f}")
+    print(f"  Test F1 (weighted): {test_metrics['f1_weighted']:.4f}")
+    print("="*60 + "\n")
     
     return best_model_dir
 

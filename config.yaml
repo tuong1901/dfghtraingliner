@@ -14,7 +14,7 @@ run:
 # ============================================================
 data:
   dataset_path: "../cleaned_dataset.json"   # Đường dẫn tới cleaned_dataset.json
-  val_ratio: 0.1                            # Tỉ lệ validation (10%)
+  val_ratio: 0.2                            # Tỉ lệ validation + test (20%)
   max_samples: null                         # null = dùng toàn bộ, hoặc số nguyên để giới hạn
 
 # ============================================================

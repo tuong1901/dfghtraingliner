@@ -36,6 +36,7 @@ import csv
 import time
 import copy
 import argparse
+import random
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -59,6 +60,7 @@ def run_single_benchmark(
     benchmark_cfg: dict,
     train_data: List[dict],
     val_data: List[dict],
+    test_data: List[dict],
     level_labels: List[str],
     device: str,
     seed: int,
@@ -100,7 +102,7 @@ def run_single_benchmark(
         "model_name": model_name,
         "accuracy": 0.0,
         "f1_weighted": 0.0,
-        "val_loss": 99.9,
+        "test_loss": 99.9,
         "train_time": "N/A",
         "train_time_sec": 0.0,
         "model_dir": "N/A",
@@ -310,10 +312,35 @@ def run_single_benchmark(
                 "n_params": n_params,
             }, f, ensure_ascii=False, indent=2)
 
+        # Đánh giá khách quan trên tập test bằng best model vừa lưu
+        print(f"[{model_display_name}] Đánh giá khách quan trên tập TEST thực tế bằng best model...")
+        best_model = AutoModelForSequenceClassification.from_pretrained(best_model_dir).to(device)
+        best_tokenizer = AutoTokenizer.from_pretrained(best_model_dir)
+        
+        test_dataset = JobLevelDataset(
+            test_data, best_tokenizer, level_labels, max_length, truncation_strategy
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=eval_batch_size,
+            shuffle=False,
+            collate_fn=collate_fn,
+            num_workers=0,
+        )
+        
+        test_metrics = evaluate(best_model, test_loader, device, level_labels, loss_fct=loss_fct)
+        print("\n" + "="*60)
+        print(f"  [{model_display_name}] KẾT QUẢ ĐÁNH GIÁ TRÊN TẬP TEST ĐỘC LẬP (TEST SET)")
+        print("="*60)
+        print(f"  Test Loss: {test_metrics['loss']:.4f}")
+        print(f"  Test Accuracy: {test_metrics['accuracy']:.4f}")
+        print(f"  Test F1 (weighted): {test_metrics['f1_weighted']:.4f}")
+        print("="*60 + "\n")
+
         result.update({
-            "accuracy": best_metrics.get("accuracy", 0.0),
-            "f1_weighted": best_metrics.get("f1_weighted", 0.0),
-            "val_loss": best_metrics.get("loss", 99.9),
+            "accuracy": test_metrics.get("accuracy", 0.0),
+            "f1_weighted": test_metrics.get("f1_weighted", 0.0),
+            "test_loss": test_metrics.get("loss", 99.9),
             "train_time": train_time_str,
             "train_time_sec": train_time_sec,
             "model_dir": best_model_dir,
@@ -353,8 +380,8 @@ def print_results_table(results: List[Dict[str, Any]]):
 
     # Header
     col_widths = {
-        "name": 20, "model_name": 32, "accuracy": 10,
-        "f1_weighted": 10, "val_loss": 10, "train_time": 12,
+        "name": 20, "model_name": 32, "accuracy": 12,
+        "f1_weighted": 12, "test_loss": 12, "train_time": 12,
         "n_params": 14, "status": 8
     }
 
@@ -370,8 +397,8 @@ def print_results_table(results: List[Dict[str, Any]]):
 
     headers = {
         "name": "Model Name", "model_name": "HuggingFace ID",
-        "accuracy": "Accuracy", "f1_weighted": "F1(wt)",
-        "val_loss": "Val Loss", "train_time": "Train Time",
+        "accuracy": "Acc (Test)", "f1_weighted": "F1 (Test)",
+        "test_loss": "Test Loss", "train_time": "Train Time",
         "n_params": "# Params", "status": "Status"
     }
 
@@ -391,7 +418,7 @@ def print_results_table(results: List[Dict[str, Any]]):
             "model_name": r["model_name"],
             "accuracy": f"{r.get('accuracy', 0):.4f}" if r["status"] == "SUCCESS" else "FAILED",
             "f1_weighted": f"{r.get('f1_weighted', 0):.4f}" if r["status"] == "SUCCESS" else "FAILED",
-            "val_loss": f"{r.get('val_loss', 0):.4f}" if r["status"] == "SUCCESS" else "FAILED",
+            "test_loss": f"{r.get('test_loss', 0):.4f}" if r["status"] == "SUCCESS" else "FAILED",
             "train_time": r.get("train_time", "N/A"),
             "n_params": f"{r.get('n_params', 0):,}" if r.get("n_params") else "N/A",
             "status": r["status"],
@@ -428,7 +455,7 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
     csv_path = os.path.join(output_dir, "benchmark_results.csv")
     fieldnames = [
         "name", "model_name", "status",
-        "accuracy", "f1_weighted", "val_loss",
+        "accuracy", "f1_weighted", "test_loss",
         "train_time", "train_time_sec", "n_params",
         "model_dir", "error"
     ]
@@ -439,7 +466,7 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
         for r in results:
             # Format float đẹp
             row = dict(r)
-            for k in ["accuracy", "f1_weighted", "val_loss"]:
+            for k in ["accuracy", "f1_weighted", "test_loss"]:
                 if isinstance(row.get(k), float):
                     row[k] = f"{row[k]:.6f}"
             writer.writerow(row)
@@ -452,7 +479,7 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
     lines.append("=" * 100)
     lines.append("BENCHMARK RESULTS - Level Classifier")
     lines.append("=" * 100)
-    lines.append(f"{'Model':<22} {'HuggingFace ID':<35} {'Acc':>8} {'F1(wt)':>8} {'Loss':>8} {'Time':>12} {'Params':>14} {'Status'}")
+    lines.append(f"{'Model':<22} {'HuggingFace ID':<35} {'Acc (Test)':>10} {'F1 (Test)':>10} {'Loss (Test)':>12} {'Time':>12} {'Params':>14} {'Status'}")
     lines.append("-" * 100)
 
     sorted_r = sorted(results, key=lambda r: (r["status"] != "SUCCESS", -r.get("f1_weighted", 0)))
@@ -460,8 +487,8 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
         if r["status"] == "SUCCESS":
             lines.append(
                 f"{r['name']:<22} {r['model_name']:<35} "
-                f"{r.get('accuracy', 0):>8.4f} {r.get('f1_weighted', 0):>8.4f} "
-                f"{r.get('val_loss', 0):>8.4f} {r.get('train_time', 'N/A'):>12} "
+                f"{r.get('accuracy', 0):>10.4f} {r.get('f1_weighted', 0):>10.4f} "
+                f"{r.get('test_loss', 0):>12.4f} {r.get('train_time', 'N/A'):>12} "
                 f"{r.get('n_params', 0):>14,} {'OK'}"
             )
         else:
@@ -528,11 +555,20 @@ def run_all_benchmarks(cfg: dict) -> List[Dict[str, Any]]:
     print("[Benchmark] Load dataset...")
     train_data, val_data = load_dataset(
         dataset_path=data_cfg["dataset_path"],
-        val_ratio=data_cfg.get("val_ratio", 0.1),
+        val_ratio=data_cfg.get("val_ratio", 0.2), # default to 0.2 if not specified to allow 10/10 split
         max_samples=data_cfg.get("max_samples", None),
         seed=seed,
         level_labels=level_labels,
     )
+
+    # Chia val_data thành val_data và test_data (50% validation, 50% test)
+    # Giúp đánh giá khách quan trên tập test chưa từng dùng để chọn best model.
+    random.seed(seed)
+    random.shuffle(val_data)
+    split_idx = len(val_data) // 2
+    test_data = val_data[:split_idx]
+    val_data = val_data[split_idx:]
+    print(f"[Benchmark] Thực tế split -> Val: {len(val_data)} | Test: {len(test_data)}")
 
     # Danh sách model từ config
     model_list = benchmark_cfg.get("models", [])
@@ -562,6 +598,7 @@ def run_all_benchmarks(cfg: dict) -> List[Dict[str, Any]]:
             benchmark_cfg=benchmark_cfg,
             train_data=train_data,
             val_data=val_data,
+            test_data=test_data,
             level_labels=level_labels,
             device=device,
             seed=seed,

@@ -130,7 +130,7 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
     - `"tail"`: lấy max_length token cuối (bắt requirements)
     - `"head+tail"`: 128 đầu + phần cuối (tốt nhất, mặc định)
 - **`OrdinalLoss`** (class): Custom loss function kết hợp CrossEntropyLoss (Weighted) và Distance Penalty (phạt khoảng cách tuần tự giữa các cấp bậc có thứ tự logic như INTERN -> FRESHER -> JUNIOR -> MIDDLE -> SENIOR -> MANAGER).
-- **`train_classifier(cfg)`**: Training loop sử dụng **OrdinalLoss** (với hệ số phạt `lambda_penalty` tùy chỉnh) để giải quyết mất cân bằng dữ liệu và tối ưu dự đoán theo thứ tự cấp bậc. Tích hợp AdamW + Linear scheduler + warmup + best-model checkpoint.
+- **`train_classifier(cfg)`**: Training loop chính. Tải dataset và chia `val_ratio` (mặc định 20% trong config) thành 2 phần bằng nhau: 50% làm tập Validation (để chọn checkpoint tốt nhất và early stopping) và 50% làm tập Test độc lập. Sử dụng **OrdinalLoss** để giải quyết mất cân bằng dữ liệu và phạt dự đoán sai lệch cấp bậc. Cuối cùng, load best model và chạy đánh giá khách quan trên tập Test để in báo cáo chính xác.
 - **`quick_test_classifier(model_dir, level_labels)`**: Test 4 câu mẫu với levels khác nhau
 
 **Output:** `./outputs/classifier/best_model/` + `label_map.json`
@@ -151,10 +151,10 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
 | PhoBERT-base-v2 | `vinai/phobert-base-v2` | Vietnamese (tắt mặc định) |
 
 **Hàm chính:**
-- **`run_single_benchmark(model_cfg, ...)`**: Train + evaluate 1 model → `{accuracy, f1_weighted, val_loss, train_time, n_params, status}`
-- **`run_all_benchmarks(cfg)`**: Loop qua tất cả model enabled, tổng hợp kết quả
-- **`print_results_table(results)`**: In bảng ASCII so sánh + highlight winner
-- **`save_results(results, output_dir)`**: Lưu `benchmark_results.csv` + `benchmark_results.txt`
+- **`run_single_benchmark(model_cfg, ...)`**: Nhận tập train_data, val_data (cho training & early stopping) và test_data (cho đánh giá cuối). Huấn luyện mô hình, lưu checkpoint tốt nhất dựa trên val_data, sau đó load checkpoint tốt nhất để đánh giá trên tập test_data độc lập và trả về kết quả benchmark → `{accuracy, f1_weighted, test_loss, train_time, n_params, status}`.
+- **`run_all_benchmarks(cfg)`**: Load dataset và split phần validation thành 50% validation / 50% test độc lập. Chạy tuần tự tất cả model enabled và tổng hợp kết quả.
+- **`print_results_table(results)`**: In bảng ASCII so sánh kết quả trên tập Test độc lập và highlight winner.
+- **`save_results(results, output_dir)`**: Lưu `benchmark_results.csv` + `benchmark_results.txt` với các trường test metrics.
 
 ---
 
