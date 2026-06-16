@@ -49,11 +49,14 @@ gliner:
 classifier:
   model_name: "distilbert-base-uncased" # Nhẹ nhất
   level_labels:
+    - "INTERN"
     - "FRESHER"
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
+    - "MANAGER"
     - "UNKNOWN"
+  lambda_penalty: 1.0
 
   # Hyperparameters
   num_epochs: 1
@@ -71,3 +74,31 @@ classifier:
   eval_steps: 100
   logging_steps: 10
   wandb_project: null
+
+# ============================================================
+# BENCHMARK DEBUG CONFIG
+# ============================================================
+benchmark:
+  output_dir: "./outputs/benchmark_debug"
+  num_epochs: 1
+  max_length: 128
+  truncation_strategy: "head+tail"
+  logging_steps: 10
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "MANAGER"
+    - "UNKNOWN"
+  lambda_penalty: 1.0
+  models:
+    - name: "DistilBERT"
+      model_name: "distilbert-base-uncased"
+      train_batch_size: 4
+      eval_batch_size: 4
+      learning_rate: 3.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true

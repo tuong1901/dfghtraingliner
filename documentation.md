@@ -6,8 +6,8 @@ Thư mục này chứa toàn bộ code training và benchmark cho **2 model**:
    - **Đầu vào**: `text` (chuỗi Job Description thuần)
    - **Đầu ra**: Spans `[start, end, label]` với label ∈ `{SKILL, EXPERIENCE}`
 2. **Level Classifier** – Phân loại cấp bậc công việc
-   - **Đầu vào**: `text` (chuỗi Job Description thuần)
-   - **Đầu ra**: `level` ∈ `{FRESHER, JUNIOR, MIDDLE, SENIOR, UNKNOWN}` (các lớp thiểu số khác như INTERN, LEAD, MANAGER, DIRECTOR, EXPERT tự động được map về UNKNOWN)
+   - Đầu vào: `text` (chuỗi Job Description thuần)
+   - Đầu ra: `level` ∈ `{INTERN, FRESHER, JUNIOR, MIDDLE, SENIOR, MANAGER, UNKNOWN}` (các lớp thiểu số dưới 3% như LEAD, DIRECTOR, EXECUTIVE tự động được map về UNKNOWN)
 
 Dataset đầu vào: `../cleaned_dataset.json`
 
@@ -121,7 +121,7 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
 
 **Input/Output:**
 - Đầu vào: `text` (chuỗi Job Description thuần)
-- Đầu ra: `level` label (multi-class classification, 10 lớp)
+- Đầu ra: `level` label (multi-class classification, 7 lớp sau khi lọc và map)
 
 **Hàm/class chính:**
 - **`JobLevelDataset`** (class): PyTorch Dataset. `__getitem__` → `{input_ids, attention_mask, labels}`
@@ -129,7 +129,8 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
     - `"head"`: lấy max_length token đầu
     - `"tail"`: lấy max_length token cuối (bắt requirements)
     - `"head+tail"`: 128 đầu + phần cuối (tốt nhất, mặc định)
-- **`train_classifier(cfg)`**: Training loop với trọng số lớp (**Weighted CrossEntropyLoss** dùng `class_weights` từ training set) để giải quyết mất cân bằng dữ liệu. Tích hợp AdamW + Linear scheduler + warmup + best-model checkpoint.
+- **`OrdinalLoss`** (class): Custom loss function kết hợp CrossEntropyLoss (Weighted) và Distance Penalty (phạt khoảng cách tuần tự giữa các cấp bậc có thứ tự logic như INTERN -> FRESHER -> JUNIOR -> MIDDLE -> SENIOR -> MANAGER).
+- **`train_classifier(cfg)`**: Training loop sử dụng **OrdinalLoss** (với hệ số phạt `lambda_penalty` tùy chỉnh) để giải quyết mất cân bằng dữ liệu và tối ưu dự đoán theo thứ tự cấp bậc. Tích hợp AdamW + Linear scheduler + warmup + best-model checkpoint.
 - **`quick_test_classifier(model_dir, level_labels)`**: Test 4 câu mẫu với levels khác nhau
 
 **Output:** `./outputs/classifier/best_model/` + `label_map.json`
@@ -226,7 +227,7 @@ outputs/benchmark_gliner/
 |-----|----------|
 | `load_config(config_path)` | Đọc YAML → dict |
 | `set_seed(seed)` | Fix random seed (Python, NumPy, PyTorch) |
-| `load_dataset(path, val_ratio, max_samples, seed, level_labels)` | Load JSON, lọc và gộp các level thiểu số không nằm trong config về `'UNKNOWN'`, split train/val |
+| `load_dataset(path, val_ratio, max_samples, seed, level_labels)` | Load JSON (streaming chunked tiết kiệm RAM, chống MemoryError), lọc và gộp các level thiểu số < 3% về `'UNKNOWN'`, split train/val |
 | `normalize_level(level_str, level_labels)` | Chuỗi level → index |
 | `format_time(seconds)` | Số giây → "Xh Ym Zs" |
 | `print_banner(title)` | In tiêu đề đẹp |
@@ -311,8 +312,8 @@ train/
 - ✅ `EXPERIENCE`: Số năm kinh nghiệm ("3+ years", "Minimum 5 years"...)
 - ❌ `MAJOR`: **Không train** – đã bỏ khỏi GLiNER entity_types
 
-### Classifier: Level Classes (5 lớp chính)
-`FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `UNKNOWN` (Các nhãn khác như `INTERN`, `LEAD`, `MANAGER`, `DIRECTOR`, `EXPERT` tự động được chuẩn hóa về `UNKNOWN` lúc load dataset).
+### Classifier: Level Classes (7 lớp chính, ngưỡng tần suất >= 3%)
+`INTERN` → `FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `MANAGER` → `UNKNOWN` (Các nhãn khác dưới 3% như `LEAD`, `DIRECTOR`, `EXECUTIVE` tự động được chuẩn hóa về `UNKNOWN` lúc load dataset).
 
 ### Truncation strategy
 JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:

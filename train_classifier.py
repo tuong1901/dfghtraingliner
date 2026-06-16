@@ -43,6 +43,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from collections import Counter
 
 import numpy as np
+import torch
+import torch.nn as nn
 
 # Thêm thư mục cha vào sys.path để import utils
 sys.path.insert(0, str(Path(__file__).parent))
@@ -222,6 +224,7 @@ def evaluate(
     dataloader,
     device: str,
     level_labels: List[str],
+    loss_fct=None,
 ) -> Dict[str, float]:
     """
     Đánh giá model trên validation set.
@@ -232,6 +235,7 @@ def evaluate(
         dataloader  : Val DataLoader
         device      : "cuda" hoặc "cpu"
         level_labels: Danh sách các level
+        loss_fct    : Loss function tùy chọn (để tính val loss đồng nhất)
 
     Returns:
         Dict metrics: {"accuracy": float, "f1_weighted": float, "loss": float}
@@ -261,9 +265,13 @@ def evaluate(
                 kwargs["token_type_ids"] = batch["token_type_ids"].to(device)
             
             outputs = model(**kwargs)
-            loss = outputs.loss
             logits = outputs.logits
             
+            if loss_fct is not None:
+                loss = loss_fct(logits, labels)
+            else:
+                loss = outputs.loss
+                
             total_loss += loss.item()
             preds = logits.argmax(dim=-1).cpu().numpy()
             all_preds.extend(preds)
@@ -292,6 +300,62 @@ def evaluate(
         "accuracy": accuracy,
         "f1_weighted": f1,
     }
+
+
+class OrdinalLoss(nn.Module):
+    """
+    Custom Loss kết hợp CrossEntropyLoss (có weight) và phạt khoảng cách tuần tự (Ordinal/Distance Loss).
+    """
+    def __init__(self, class_weights=None, level_labels=None, lambda_penalty=1.0):
+        super().__init__()
+        self.class_weights = class_weights
+        self.lambda_penalty = lambda_penalty
+        self.ce = nn.CrossEntropyLoss(weight=class_weights)
+        
+        self.distance_matrix = None
+        if level_labels is not None:
+            num_labels = len(level_labels)
+            ordered_levels = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD", "MANAGER", "DIRECTOR", "EXPERT"]
+            
+            level_to_order_idx = {}
+            for idx, lvl in enumerate(level_labels):
+                lvl_upper = lvl.upper().strip()
+                if lvl_upper in ordered_levels:
+                    level_to_order_idx[idx] = ordered_levels.index(lvl_upper)
+                else:
+                    level_to_order_idx[idx] = None
+                    
+            D = np.zeros((num_labels, num_labels), dtype=np.float32)
+            for i in range(num_labels):
+                for j in range(num_labels):
+                    idx_i = level_to_order_idx[i]
+                    idx_j = level_to_order_idx[j]
+                    if idx_i is not None and idx_j is not None:
+                        D[i, j] = float(abs(idx_i - idx_j))
+                    elif i == j:
+                        D[i, j] = 0.0
+                    else:
+                        D[i, j] = 1.5
+            
+            self.distance_matrix = torch.tensor(D, dtype=torch.float32)
+
+    def to(self, device):
+        super().to(device)
+        if self.distance_matrix is not None:
+            self.distance_matrix = self.distance_matrix.to(device)
+        return self
+
+    def forward(self, logits, targets):
+        ce_loss = self.ce(logits, targets)
+        if self.distance_matrix is None or self.lambda_penalty == 0.0:
+            return ce_loss
+            
+        probs = torch.softmax(logits, dim=-1)
+        batch_distances = self.distance_matrix[targets]
+        expected_distances = torch.sum(probs * batch_distances, dim=-1)
+        penalty_loss = torch.mean(expected_distances)
+        
+        return ce_loss + self.lambda_penalty * penalty_loss
 
 
 # ----------------------------------------------------------------
@@ -410,15 +474,25 @@ def train_classifier(cfg: dict):
     print("\n[Classifier] Tính class weights xử lý mất cân bằng...")
     from sklearn.utils.class_weight import compute_class_weight
     train_labels = [s[1] for s in train_dataset.samples]
-    class_weights = compute_class_weight(
+    
+    unique_train_labels = np.unique(train_labels)
+    computed_weights = compute_class_weight(
         class_weight='balanced',
-        classes=np.arange(num_labels),
+        classes=unique_train_labels,
         y=train_labels
     )
-    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
+    
+    full_weights = np.ones(num_labels, dtype=np.float32)
+    for cls_id, w in zip(unique_train_labels, computed_weights):
+        full_weights[cls_id] = w
+        
+    class_weights = torch.tensor(full_weights, dtype=torch.float).to(device)
     # Print weights beautifully
     weights_dict = {level_labels[i]: round(class_weights[i].item(), 4) for i in range(num_labels)}
     print(f"  Class weights: {weights_dict}")
+    
+    lambda_penalty = ccfg.get("lambda_penalty", 1.0)
+    print(f"[Classifier] Ordinal lambda_penalty: {lambda_penalty}")
     
     # 6. Optimizer & Scheduler
     num_epochs = ccfg.get("num_epochs", 5)
@@ -469,6 +543,9 @@ def train_classifier(cfg: dict):
     use_amp = device == "cuda"
     scaler = torch.cuda.amp.GradScaler() if use_amp else None
     
+    # Custom loss
+    loss_fct = OrdinalLoss(class_weights=class_weights, level_labels=level_labels, lambda_penalty=lambda_penalty).to(device)
+    
     model.train()
     for epoch in range(1, num_epochs + 1):
         epoch_loss = 0.0
@@ -490,8 +567,6 @@ def train_classifier(cfg: dict):
                 kwargs["token_type_ids"] = batch["token_type_ids"].to(device)
             
             optimizer.zero_grad()
-            
-            loss_fct = nn.CrossEntropyLoss(weight=class_weights)
             
             if use_amp:
                 with torch.cuda.amp.autocast():
@@ -530,7 +605,7 @@ def train_classifier(cfg: dict):
             # Evaluation
             if global_step % eval_steps == 0:
                 print(f"\n[Classifier] Đánh giá tại step {global_step}...")
-                metrics = evaluate(model, val_loader, device, level_labels)
+                metrics = evaluate(model, val_loader, device, level_labels, loss_fct=loss_fct)
                 print(
                     f"  Val Loss: {metrics['loss']:.4f} | "
                     f"Accuracy: {metrics['accuracy']:.4f} | "
@@ -549,7 +624,7 @@ def train_classifier(cfg: dict):
         
         # Eval cuối mỗi epoch
         print(f"\n[Classifier] Cuối Epoch {epoch} - Đánh giá...")
-        metrics = evaluate(model, val_loader, device, level_labels)
+        metrics = evaluate(model, val_loader, device, level_labels, loss_fct=loss_fct)
         print(
             f"  Val Loss: {metrics['loss']:.4f} | "
             f"Accuracy: {metrics['accuracy']:.4f} | "
@@ -635,6 +710,8 @@ def quick_test_classifier(model_dir: str, level_labels: List[str]):
 # Entry point độc lập
 # ----------------------------------------------------------------
 if __name__ == "__main__":
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description="Train Level Classifier")
     parser.add_argument("--config", type=str, default="config.yaml", help="Đường dẫn config.yaml")
     args = parser.parse_args()

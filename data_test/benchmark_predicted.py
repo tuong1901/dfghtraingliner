@@ -24,7 +24,7 @@ def main():
     print("="*80)
 
     # Siêu tham số ngưỡng confidence tự động lọc để tối ưu F1-Score
-    threshold_skill = 0.80
+    threshold_skill = 0.70
     threshold_experience = 0.50
     print(f"[*] Sử dụng ngưỡng tự động lọc: SKILL >= {threshold_skill}, EXPERIENCE >= {threshold_experience}")
 

@@ -68,19 +68,24 @@ gliner:
 # ============================================================
 classifier:
   # Model base để finetune (chọn 1 trong các option bên dưới)
-  model_name: "bert-base-uncased"
-  # model_name: "distilbert-base-uncased"           # Nhanh hơn, nhẹ hơn
+  model_name: "distilbert-base-uncased"
+  # model_name: "bert-base-uncased"
   # model_name: "roberta-base"                      # Thường tốt hơn BERT
   # model_name: "microsoft/deberta-v3-small"        # Tốt nhất trong các model nhỏ
   # model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Embedding-based
 
   # Các nhãn level (phải khớp chính xác với giá trị trường "level" trong dataset)
   level_labels:
+    - "INTERN"
     - "FRESHER"
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
+    - "MANAGER"
     - "UNKNOWN"
+
+  # Hệ số phạt khoảng cách khi học sai cấp bậc tuần tự (0.0 = không dùng)
+  lambda_penalty: 1.0
 
   # Hyperparameters
   num_epochs: 5
@@ -127,11 +132,16 @@ benchmark:
 
   # Các nhãn level (phải giống với classifier.level_labels)
   level_labels:
+    - "INTERN"
     - "FRESHER"
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
+    - "MANAGER"
     - "UNKNOWN"
+
+  # Hệ số phạt khoảng cách khi học sai cấp bậc tuần tự (0.0 = không dùng)
+  lambda_penalty: 1.0
 
   # Danh sách các model sẽ được benchmark
   # Mỗi model có thể override các hyperparameter chung
@@ -150,6 +160,15 @@ benchmark:
       train_batch_size: 32     # Nhẹ hơn nên dùng batch lớn hơn
       eval_batch_size: 64
       learning_rate: 3.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    - name: "FinBERT"
+      model_name: "ProsusAI/finbert"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 2.0e-5
       weight_decay: 0.01
       warmup_ratio: 0.1
       enabled: true

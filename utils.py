@@ -85,8 +85,8 @@ def load_dataset(
     level_labels: Optional[List[str]] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
-    Load cleaned_dataset.json, lọc các sample không hợp lệ,
-    rồi chia train/val theo tỉ lệ val_ratio.
+    Load cleaned_dataset.json bằng phương pháp stream tiết kiệm bộ nhớ,
+    lọc các sample không hợp lệ, rồi chia train/val theo tỉ lệ val_ratio.
 
     Args:
         dataset_path  : Đường dẫn tới cleaned_dataset.json
@@ -98,33 +98,75 @@ def load_dataset(
     Returns:
         (train_data, val_data): Hai list các dict
     """
-    print(f"[Data] Đang load dataset từ: {dataset_path}")
-    with open(dataset_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    print(f"[Data] Đang load dataset (streaming) từ: {dataset_path}")
     
-    print(f"[Data] Tổng số sample gốc: {len(data)}")
+    # Custom streaming JSON array parser để tránh MemoryError khi Ram thấp
+    def stream_json_array(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            chunk_size = 65536
+            found_start = False
+            buffer = []
+            bracket_count = 0
+            in_string = False
+            escape = False
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                for char in chunk:
+                    if not found_start:
+                        if char == '[':
+                            found_start = True
+                        continue
+                    if bracket_count > 0:
+                        buffer.append(char)
+                    if in_string:
+                        if escape:
+                            escape = False
+                        elif char == '\\':
+                            escape = True
+                        elif char == '"':
+                            in_string = False
+                    else:
+                        if char == '"':
+                            in_string = True
+                        elif char == '{':
+                            if bracket_count == 0:
+                                buffer = [char]
+                            bracket_count += 1
+                        elif char == '}':
+                            bracket_count -= 1
+                            if bracket_count == 0:
+                                obj_str = "".join(buffer)
+                                try:
+                                    yield json.loads(obj_str)
+                                except Exception:
+                                    pass
+                                buffer = []
+
+    raw_generator = stream_json_array(dataset_path)
     
-    # Lọc sample không có text
-    data = [d for d in data if d.get("text", "").strip()]
-    print(f"[Data] Sau khi lọc sample không có text: {len(data)}")
+    # Xử lý lọc và map level on-the-fly để tối ưu bộ nhớ
+    valid_levels = set(lv.upper() for lv in level_labels) if level_labels is not None else None
+    has_unknown = "UNKNOWN" in valid_levels if valid_levels is not None else False
     
-    # Lọc và map level
-    if level_labels is not None:
-        valid_levels = set(lv.upper() for lv in level_labels)
-        has_unknown = "UNKNOWN" in valid_levels
-        
-        filtered_data = []
-        for d in data:
-            d_copy = d.copy()
-            lvl = str(d_copy.get("level", "")).upper().strip()
+    data = []
+    for d in raw_generator:
+        # Lọc sample không có text
+        if not d.get("text", "").strip():
+            continue
+            
+        # Lọc và map level
+        if valid_levels is not None:
+            lvl = str(d.get("level", "")).upper().strip()
             if lvl not in valid_levels:
                 if has_unknown:
-                    d_copy["level"] = "UNKNOWN"
+                    d["level"] = "UNKNOWN"
                 else:
                     continue
-            filtered_data.append(d_copy)
-        data = filtered_data
-        print(f"[Data] Sau khi lọc và map level sang UNKNOWN: {len(data)}")
+        data.append(d)
+        
+    print(f"[Data] Tổng số sample hợp lệ sau lọc: {len(data)}")
     
     # Giới hạn số sample
     if max_samples is not None and max_samples < len(data):

@@ -48,7 +48,7 @@ from utils import (
     print_banner, check_device, format_time
 )
 # Tái dùng Dataset và các hàm từ train_classifier.py
-from train_classifier import JobLevelDataset, collate_fn, evaluate
+from train_classifier import JobLevelDataset, collate_fn, evaluate, OrdinalLoss
 
 
 # ----------------------------------------------------------------
@@ -125,6 +125,8 @@ def run_single_benchmark(
         max_length = benchmark_cfg.get("max_length", 512)
         truncation_strategy = benchmark_cfg.get("truncation_strategy", "head+tail")
         logging_steps = benchmark_cfg.get("logging_steps", 100)
+        lambda_penalty = benchmark_cfg.get("lambda_penalty", 1.0)
+        print(f"[{model_display_name}] Ordinal lambda_penalty: {lambda_penalty}")
 
         train_batch_size = model_cfg.get("train_batch_size", 16)
         eval_batch_size = model_cfg.get("eval_batch_size", 32)
@@ -179,14 +181,19 @@ def run_single_benchmark(
         from sklearn.utils.class_weight import compute_class_weight
         from torch import nn
         train_labels = [s[1] for s in train_dataset.samples]
-        class_weights = torch.tensor(
-            compute_class_weight(
-                class_weight='balanced',
-                classes=np.arange(num_labels),
-                y=train_labels
-            ),
-            dtype=torch.float
-        ).to(device)
+        
+        unique_train_labels = np.unique(train_labels)
+        computed_weights = compute_class_weight(
+            class_weight='balanced',
+            classes=unique_train_labels,
+            y=train_labels
+        )
+        
+        full_weights = np.ones(num_labels, dtype=np.float32)
+        for cls_id, w in zip(unique_train_labels, computed_weights):
+            full_weights[cls_id] = w
+            
+        class_weights = torch.tensor(full_weights, dtype=torch.float).to(device)
         weights_dict = {level_labels[i]: round(class_weights[i].item(), 4) for i in range(num_labels)}
         print(f"  Class weights: {weights_dict}")
 
@@ -217,6 +224,9 @@ def run_single_benchmark(
         global_step = 0
         start_time = time.time()
 
+        # Custom loss
+        loss_fct = OrdinalLoss(class_weights=class_weights, level_labels=level_labels, lambda_penalty=lambda_penalty).to(device)
+
         model.train()
         for epoch in range(1, num_epochs + 1):
             epoch_loss = 0.0
@@ -237,8 +247,6 @@ def run_single_benchmark(
                     kwargs["token_type_ids"] = batch["token_type_ids"].to(device)
 
                 optimizer.zero_grad()
-
-                loss_fct = nn.CrossEntropyLoss(weight=class_weights)
 
                 if use_amp:
                     with torch.cuda.amp.autocast():
@@ -271,7 +279,7 @@ def run_single_benchmark(
 
             # Evaluate cuối epoch
             print(f"\n[{model_display_name}] Evaluate sau Epoch {epoch}...")
-            metrics = evaluate(model, val_loader, device, level_labels)
+            metrics = evaluate(model, val_loader, device, level_labels, loss_fct=loss_fct)
             print(
                 f"  Loss={metrics['loss']:.4f} | "
                 f"Acc={metrics['accuracy']:.4f} | "
@@ -588,6 +596,8 @@ def run_all_benchmarks(cfg: dict) -> List[Dict[str, Any]]:
 # Entry point độc lập
 # ----------------------------------------------------------------
 if __name__ == "__main__":
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description="Benchmark nhiều Level Classifier model",
         formatter_class=argparse.RawDescriptionHelpFormatter,

@@ -13,21 +13,34 @@ Thư mục chứa toàn bộ pipeline **training, benchmark và evaluation** cho
 
 ```
 train/
-├── config.yaml                  ← ⭐ File cấu hình tổng (chỉnh ở đây, không sửa code)
+├── config.yaml                       ← ⭐ File cấu hình tổng (chỉnh ở đây, không sửa code)
+├── config_medium_v25.yaml            ← File cấu hình chuyên biệt cho GLiNER Medium v2.5
+├── config_medium_v25_major.yaml      ← File cấu hình train GLiNER Medium v2.5 kèm nhãn MAJOR
+├── config_small_v25_major.yaml       ← File cấu hình train GLiNER Small v2.5 kèm nhãn MAJOR
+├── config_debug.yaml                 ← File cấu hình test nhanh (dry-run)
 │
-├── train_master.py              ← Script điều phối chính (chạy file này)
-├── train_gliner.py              ← Pipeline train GLiNER (single model, full epochs)
-├── train_classifier.py          ← Pipeline train Level Classifier (single model)
+├── train_master.py                   ← Script điều phối chính (chạy file này)
+├── train_gliner.py                   ← Pipeline train GLiNER (single model, full epochs)
+├── train_classifier.py               ← Pipeline train Level Classifier (single model)
 │
-├── benchmark_gliner.py          ← 🆕 Benchmark GLiNER: Baseline→FT→Post-eval (F1+nDCG@5,10)
-├── benchmark_classifier.py      ← Benchmark Classifier: so sánh BERT/RoBERTa/DeBERTa/...
+├── benchmark_gliner.py               ← Benchmark GLiNER: Baseline→FT→Post-eval (F1+nDCG@5,10)
+├── benchmark_classifier.py           ← Benchmark Classifier: so sánh BERT/RoBERTa/DeBERTa/...
 │
-├── utils.py                     ← Hàm tiện ích dùng chung (load, seed, device, ...)
-├── requirements.txt             ← pip install -r requirements.txt
+├── utils.py                          ← Hàm tiện ích dùng chung (load, seed, device, ...)
+├── requirements.txt                  ← pip install -r requirements.txt
 │
-├── README.md                    ← File này
-└── documentation.md             ← Tài liệu chi tiết từng hàm
+├── README.md                         ← File này
+├── documentation.md                  ← Tài liệu chi tiết từng hàm
+│
+└── data_test/                        ← Thư mục chứa dữ liệu test 1000 dòng và các kịch bản đánh giá
+    ├── data_xin_1000_dong.xlsx       ← File Excel input 1000 dòng JD test
+    ├── data_xin_1000_dong_predicted.xlsx ← File Excel kết quả dự đoán của GLiNER
+    ├── data_xin_1000_dong_gold.json  ← File JSON chứa nhãn vàng chuẩn (DeepSeek V3)
+    ├── test_model.py                 ← Chạy mô hình dự đoán hàng loạt thực thể ra Excel
+    ├── benchmark_predicted.py        ← Đối chiếu dự đoán với Gold và đánh giá (Exact/Overlap)
+    └── clean_gold_labels.py          ← Làm sạch và loại bỏ chồng lấn nhãn trên tập Gold
 ```
+
 
 ---
 
@@ -99,7 +112,7 @@ Sau khi tất cả model xong:
 | 3 | GLiNER-Large-v2.1 | `urchade/gliner_large-v2.1` | DeBERTa-large | 304M | Chính xác nhất |
 | 4 | GLiNER-Small-v2.5 | `gliner-community/gliner_small-v2.5` | DeBERTa-v3-xsmall | 22M | Data mới hơn |
 | 5 | GLiNER-Medium-v2.5 | `gliner-community/gliner_medium-v2.5` | DeBERTa-v3-base | 86M | ⭐ Mới + cân bằng |
-| 6 | GLiNER-Multi | `urchade/gliner_multi-v0.1` | XLM-RoBERTa | 270M | Multilingual Vi+En |
+| 6 | GLiNER-Multi | `urchade/gliner_multi-v2.1` | XLM-RoBERTa | 270M | Multilingual Vi+En |
 
 > **Ghi chú:** GLiNER-Multi tắt mặc định (`enabled: false`). Bật trong `config.yaml` nếu dataset có nhiều tiếng Việt.
 
