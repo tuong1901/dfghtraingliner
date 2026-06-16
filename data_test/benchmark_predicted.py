@@ -92,6 +92,7 @@ def main():
 
     matched_count = 0
     fallback_count = 0
+    total_ignored_majors = 0
 
     for idx, gold_item in enumerate(gold_data):
         gold_text = gold_item.get("text", "")
@@ -120,12 +121,32 @@ def main():
         ]
         gold_spans_set = set(gold_spans_list)
 
-        # Predicted Spans
-        pred_spans_list = [
-            (ent["start"], ent["end"], ent["label"].upper())
-            for ent in pred_entities
-            if ent.get("label", "").upper() in entity_types
+        # Gold MAJOR Spans (to filter out predicted SKILLs that overlap with MAJOR)
+        gold_major_spans = [
+            (span[0], span[1])
+            for span in gold_item.get("label", [])
+            if span[2].upper() == "MAJOR"
         ]
+
+        # Predicted Spans
+        pred_spans_list = []
+        for ent in pred_entities:
+            lbl = ent.get("label", "").upper()
+            if lbl in entity_types:
+                start = ent["start"]
+                end = ent["end"]
+                # Skip if predicted SKILL overlaps with gold MAJOR
+                if lbl == "SKILL":
+                    is_major = False
+                    for m_start, m_end in gold_major_spans:
+                        if max(start, m_start) < min(end, m_end):
+                            is_major = True
+                            break
+                    if is_major:
+                        total_ignored_majors += 1
+                        continue
+                pred_spans_list.append((start, end, lbl))
+
         pred_spans_set = set(pred_spans_list)
 
         # --- Exact Match Evaluation ---
@@ -164,6 +185,7 @@ def main():
                 overlap_fn[lbl] += 1
 
     print(f"[*] Kết quả so khớp: {matched_count} bằng text, {fallback_count} bằng vị trí index.")
+    print(f"[*] Đã loại bỏ {total_ignored_majors} nhãn dự đoán SKILL thực chất là MAJOR trong Gold.")
 
     # 4. Tính toán Metrics và ghi báo cáo
     lines = []

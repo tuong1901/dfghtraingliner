@@ -247,7 +247,7 @@ Chứa dữ liệu kiểm thử và các kịch bản kiểm thử mô hình.
 - **`data_xin_1000_dong_gold.json`**: File JSON chứa nhãn chuẩn (Gold Labels) trích xuất bằng DeepSeek V3.
 - **`get_data.py`**: Tải dữ liệu từ Hugging Face, lọc, ghép các trường văn bản và lưu thành file Excel 1000 dòng để kiểm thử.
 - **`test_model.py`**: Chạy dự đoán thực thể (`SKILL` và `EXPERIENCE`) bằng mô hình GLiNER cục bộ, trích xuất dữ liệu, lưu kết quả ra file Excel dự đoán và in báo cáo thống kê.
-- **`benchmark_predicted.py`**: So khớp chính xác (exact span match) kết quả dự đoán của GLiNER với nhãn chuẩn DeepSeek V3 và tính Precision, Recall, F1-score.
+- **`benchmark_predicted.py`**: So khớp kết quả dự đoán của GLiNER với nhãn chuẩn DeepSeek V3 và tính Precision, Recall, F1-score (Exact & Overlap). Tích hợp logic tự động lọc bỏ các dự đoán nhãn SKILL từ mô hình bị trùng/chồng lấn với nhãn chuẩn MAJOR có trong tập Gold để tránh phạt oan điểm mô hình (giảm False Positives).
 - **`clean_gold_labels.py`**: Làm sạch dữ liệu nhãn vàng DeepSeek V3 (data_xin_1000_dong_gold.json) bằng cách lọc bỏ các vị trí công việc gán nhầm, kỹ năng mơ hồ, và giải quyết chồng lấn nhãn (overlapping).
 - **`benchmark_report.txt`**: File báo cáo chi tiết kết quả benchmark.
 - **`README.md`**: Tài liệu chi tiết các hàm, vai trò và mối liên kết của các script trong thư mục `data_test/`.
@@ -367,6 +367,7 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Cập nhật tài liệu cục bộ [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) trong thư mục `data_test/` mô tả đầy đủ luồng dán nhãn chuẩn và đối chiếu benchmark.
 - **2026-06-16 (Tích hợp làm sạch nhãn vàng và predictions)**:
   - Tạo script [clean_gold_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/clean_gold_labels.py) giúp làm sạch nhãn vàng DeepSeek V3 theo đúng quy luật (loại bỏ từ mơ hồ, trùng vị trí công việc, giải quyết chồng lấn).
+  - Cập nhật [benchmark_predicted.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_predicted.py) nhằm tự động loại bỏ các dự đoán SKILL bị chồng lấn với nhãn chuẩn MAJOR trong Gold, giúp tránh phạt điểm oan (False Positives) cho mô hình.
   - Đối chiếu và kiểm thử so sánh kết quả benchmark của mô hình trước và sau khi làm sạch cả Gold và Predictions.
   - Cập nhật tài liệu cục bộ [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) và tài liệu chính [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
 

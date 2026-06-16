@@ -47,7 +47,7 @@ Script dùng để so sánh, đối chiếu kết quả trích xuất thực th�
     - Cấu hình output UTF-8 để chạy mượt mà trên console Windows mà không bị lỗi mã hóa tiếng Việt.
     - Đọc tập nhãn chuẩn `data_xin_1000_dong_gold.json` (sinh ra bởi [build_dataset_v3.py](file:///c:/Users/loiha/Videos/dfghtraingliner/build_dataset_v3.py) từ thư mục gốc).
     - Đọc file Excel kết quả dự đoán `data_xin_1000_dong_predicted.xlsx` (sinh ra bởi `test_model.py`).
-    - Tính toán TP, FP, FN cho cả hai chế độ: **Exact Match** (so khớp chính xác offset) và **Overlap Match** (so khớp giao nhau ký tự).
+    - Tính toán TP, FP, FN cho cả hai chế độ: **Exact Match** (so khớp chính xác offset) và **Overlap Match** (so khớp giao nhau ký tự). Tích hợp logic tự động lọc bỏ các dự đoán SKILL từ mô hình bị chồng lấn với nhãn chuẩn MAJOR trong tập Gold, giúp tránh phạt điểm oan (False Positives) cho mô hình.
     - In kết quả đối chiếu ra terminal và lưu báo cáo chi tiết kèm phân tích sai lệch vào file [benchmark_report.txt](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_report.txt).
 
 ---
