@@ -55,6 +55,12 @@ File cấu hình tổng. **Chỉ cần chỉnh file này**, không cần sửa c
 | `benchmark` | Benchmark Classifier: 6 model BERT-family |
 | `benchmark_gliner` | Benchmark GLiNER: 6 GLiNER variant (Small/Medium/Large/v2.5/Multi) |
 
+### `config_medium_v25.yaml`
+File cấu hình chuyên biệt dùng để huấn luyện mô hình **GLiNER-Medium-v2.5** trên tập dữ liệu đã làm sạch. File này đã được tối ưu sẵn các tham số cấu hình (batch=4, gradient_accumulation=4, gradient_checkpointing=true) để ngăn ngừa lỗi CUDA OOM trên môi trường GPU dưới 16GB.
+
+### `config_debug.yaml`
+File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) trên tập dữ liệu nhỏ (20 mẫu) để đảm bảo các module hoạt động trơn tru không lỗi.
+
 ---
 
 ### `train_master.py`
@@ -370,6 +376,10 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Cập nhật [benchmark_predicted.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_predicted.py) nhằm tự động loại bỏ các dự đoán SKILL bị chồng lấn với nhãn chuẩn MAJOR trong Gold, giúp tránh phạt điểm oan (False Positives) cho mô hình.
   - Đối chiếu và kiểm thử so sánh kết quả benchmark của mô hình trước và sau khi làm sạch cả Gold và Predictions.
   - Cập nhật tài liệu cục bộ [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) và tài liệu chính [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+- **2026-06-16 (Tạo config huấn luyện chuyên biệt GLiNER-Medium-v2.5)**:
+  - Tạo tệp cấu hình mới [config_medium_v25.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_medium_v25.yaml) để chạy huấn luyện riêng cho mô hình GLiNER-Medium-v2.5 mà không ảnh hưởng tới cấu hình cũ.
+  - Cập nhật tài liệu tổng thể [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+
 
 
 

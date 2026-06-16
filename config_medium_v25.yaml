@@ -1,0 +1,50 @@
+# ============================================================
+# CONFIG CHUYÊN BIỆT - HUẤN LUYỆN GLiNER-Medium-v2.5
+# ============================================================
+
+run:
+  train_gliner: true          # Chỉ chạy train GLiNER
+  train_classifier: false     # Tắt Level Classifier
+  run_benchmark: false        # Tắt benchmark Classifier
+  run_benchmark_gliner: false # Tắt benchmark GLiNER
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  dataset_path: "../cleaned_dataset.json"   # Đường dẫn tương đối hoạt động tốt trên cả Kaggle và Local
+  val_ratio: 0.1                            # Tỉ lệ validation (10%)
+  max_samples: null                         # null = dùng toàn bộ dữ liệu
+
+# ============================================================
+# GLiNER CONFIG
+# ============================================================
+gliner:
+  # Base model: Phiên bản v2.5 Medium dùng encoder DeBERTa-v3-base
+  model_name: "gliner-community/gliner_medium-v2.5"
+
+  entity_types:
+    - "SKILL"
+    - "EXPERIENCE"
+
+  # Hyperparameters tối ưu tránh lỗi CUDA OOM trên GPU <= 16GB
+  num_epochs: 5
+  train_batch_size: 4             # Giảm xuống 4 để tránh OOM
+  eval_batch_size: 4
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 512                 # Độ dài max token 512
+  max_neg_type_ratio: 1
+  gradient_accumulation_steps: 4  # Tăng grad accumulation lên 4 (Effective batch size = 16)
+  gradient_checkpointing: true    # Bật gradient checkpointing giúp giảm tiêu thụ bộ nhớ
+
+  # Cấu hình lưu trữ và logs
+  output_dir: "./outputs/gliner_medium_v25"
+  save_steps: 500
+  eval_steps: 500
+  save_total_limit: 1             # Chỉ giữ lại 1 checkpoint mới nhất để tránh tràn ổ đĩa
+  save_only_model: true           # Chỉ lưu model weight, bỏ qua trạng thái optimizer
+  logging_steps: 50
+  wandb_project: null             # null = tắt logging Weights & Biases
