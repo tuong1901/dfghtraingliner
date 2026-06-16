@@ -243,8 +243,13 @@ pyyaml>=6.0
 ### Thư mục `data_test/`
 Chứa dữ liệu kiểm thử và các kịch bản kiểm thử mô hình.
 - **`data_xin_1000_dong.xlsx`**: File Excel đầu vào chứa 1000 dòng mô tả công việc (JD) cần chạy NER.
+- **`data_xin_1000_dong_predicted.xlsx`**: File Excel kết quả dự đoán trích xuất từ GLiNER.
+- **`data_xin_1000_dong_gold.json`**: File JSON chứa nhãn chuẩn (Gold Labels) trích xuất bằng DeepSeek V3.
 - **`get_data.py`**: Tải dữ liệu từ Hugging Face, lọc, ghép các trường văn bản và lưu thành file Excel 1000 dòng để kiểm thử.
 - **`test_model.py`**: Chạy dự đoán thực thể (`SKILL` và `EXPERIENCE`) bằng mô hình GLiNER cục bộ, trích xuất dữ liệu, lưu kết quả ra file Excel dự đoán và in báo cáo thống kê.
+- **`benchmark_predicted.py`**: So khớp chính xác (exact span match) kết quả dự đoán của GLiNER với nhãn chuẩn DeepSeek V3 và tính Precision, Recall, F1-score.
+- **`clean_gold_labels.py`**: Làm sạch dữ liệu nhãn vàng DeepSeek V3 (data_xin_1000_dong_gold.json) bằng cách lọc bỏ các vị trí công việc gán nhầm, kỹ năng mơ hồ, và giải quyết chồng lấn nhãn (overlapping).
+- **`benchmark_report.txt`**: File báo cáo chi tiết kết quả benchmark.
 - **`README.md`**: Tài liệu chi tiết các hàm, vai trò và mối liên kết của các script trong thư mục `data_test/`.
 
 ---
@@ -356,4 +361,14 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Tạo script [test_model.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/test_model.py) để chạy dự đoán hàng loạt thực thể `SKILL` và `EXPERIENCE` trên file `data_xin_1000_dong.xlsx`, xuất kết quả phân tích kèm JSON thô ra file Excel mới.
   - Viết tài liệu [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) cục bộ trong thư mục `data_test/` mô tả chi tiết chức năng và các liên kết tệp theo yêu cầu của global rule.
 - **2026-06-15 (Thêm script check_labels.py)**: Tạo script [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py) giúp kiểm tra và in bảng phân bố nhãn của dataset trước/sau khi map, thống kê dữ liệu thực thể NER gốc (`SKILL`, `MAJOR`, `EXPERIENCE`), cùng với phân bố nhà tuyển dụng và độ dài văn bản. Cấu hình mã hóa UTF-8 khi in và tự động nhận diện vị trí dataset linh hoạt trên cả local và Kaggle.
+- **2026-06-15 (Tích hợp dán nhãn chuẩn và pipeline đối chiếu benchmark)**:
+  - Cập nhật [build_dataset_v3.py](file:///c:/Users/loiha/Videos/dfghtraingliner/build_dataset_v3.py) để gán nhãn chuẩn (Gold Labels) cho 1000 dòng dữ liệu mô tả công việc bằng API DeepSeek V3 thông qua so khớp biên token chính xác, xuất ra định dạng tương thích huấn luyện `data_xin_1000_dong_gold.json`.
+  - Tạo script đối chiếu [benchmark_predicted.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_predicted.py) nhằm tính toán các chỉ số Precision, Recall và F1-score đối với 2 thực thể `SKILL` và `EXPERIENCE` dựa trên Exact Span Match, rồi xuất báo cáo chi tiết ra [benchmark_report.txt](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_report.txt).
+  - Cập nhật tài liệu cục bộ [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) trong thư mục `data_test/` mô tả đầy đủ luồng dán nhãn chuẩn và đối chiếu benchmark.
+- **2026-06-16 (Tích hợp làm sạch nhãn vàng và predictions)**:
+  - Tạo script [clean_gold_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/clean_gold_labels.py) giúp làm sạch nhãn vàng DeepSeek V3 theo đúng quy luật (loại bỏ từ mơ hồ, trùng vị trí công việc, giải quyết chồng lấn).
+  - Đối chiếu và kiểm thử so sánh kết quả benchmark của mô hình trước và sau khi làm sạch cả Gold và Predictions.
+  - Cập nhật tài liệu cục bộ [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/README.md) và tài liệu chính [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+
+
 
