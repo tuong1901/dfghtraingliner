@@ -58,6 +58,9 @@ File cấu hình tổng. **Chỉ cần chỉnh file này**, không cần sửa c
 ### `config_medium_v25.yaml`
 File cấu hình chuyên biệt dùng để huấn luyện mô hình **GLiNER-Medium-v2.5** trên tập dữ liệu đã làm sạch. File này đã được tối ưu sẵn các tham số cấu hình (batch=4, gradient_accumulation=4, gradient_checkpointing=true) để ngăn ngừa lỗi CUDA OOM trên môi trường GPU dưới 16GB.
 
+### `config_medium_v25_major.yaml`
+File cấu hình chuyên biệt dùng để huấn luyện mô hình GLiNER đồng thời trên 3 nhãn: `SKILL`, `EXPERIENCE`, và `MAJOR` để mô hình tự phân biệt được ngành học/bằng cấp thay vì gán nhầm vào `SKILL`. Hỗ trợ đổi đường dẫn `model_name` sang thư mục cục bộ (ví dụ: `d:/download/glinner/glinner-small_v2.5`) để tiếp tục huấn luyện (continue fine-tuning) trên mô hình có sẵn.
+
 ### `config_debug.yaml`
 File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) trên tập dữ liệu nhỏ (20 mẫu) để đảm bảo các module hoạt động trơn tru không lỗi.
 
@@ -379,6 +382,10 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
 - **2026-06-16 (Tạo config huấn luyện chuyên biệt GLiNER-Medium-v2.5)**:
   - Tạo tệp cấu hình mới [config_medium_v25.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_medium_v25.yaml) để chạy huấn luyện riêng cho mô hình GLiNER-Medium-v2.5 mà không ảnh hưởng tới cấu hình cũ.
   - Cập nhật tài liệu tổng thể [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+- **2026-06-16 (Hỗ trợ huấn luyện kèm nhãn MAJOR và tiếp tục train từ model có sẵn)**:
+  - Tạo tệp cấu hình mới [config_medium_v25_major.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_medium_v25_major.yaml) để huấn luyện mô hình với 3 thực thể nhằm giải quyết vấn đề nhãn MAJOR bị gán nhầm thành SKILL ở đầu ra. Hỗ trợ truyền đường dẫn cục bộ để huấn luyện tiếp tục trên model đã lưu.
+  - Cập nhật tài liệu tổng thể [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+
 
 
 

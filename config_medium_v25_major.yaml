@@ -1,0 +1,55 @@
+# ============================================================
+# CONFIG CHUYÊN BIỆT - HUẤN LUYỆN GLiNER KÈM NHÃN MAJOR
+# ============================================================
+
+run:
+  train_gliner: true          # Chỉ chạy train GLiNER
+  train_classifier: false     # Tắt Level Classifier
+  run_benchmark: false        # Tắt benchmark
+  run_benchmark_gliner: false # Tắt benchmark GLiNER
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  # dataset_path chứa cleaned_dataset.json gốc (nơi có đầy đủ nhãn MAJOR)
+  dataset_path: "../cleaned_dataset.json"
+  val_ratio: 0.1
+  max_samples: null
+
+# ============================================================
+# GLiNER CONFIG
+# ============================================================
+gliner:
+  # LƯU Ý: Bạn có thể đổi đường dẫn này thành thư mục chứa model của bạn để train tiếp, ví dụ:
+  # model_name: "d:/download/glinner/glinner-small_v2.5"
+  model_name: "gliner-community/gliner_medium-v2.5"
+
+  # Thêm nhãn MAJOR vào quá trình train để model học cách phân biệt Ngành Học với Kỹ Năng (SKILL).
+  # Khi trích xuất, ta sẽ bỏ qua nhãn MAJOR, chỉ giữ lại SKILL và EXPERIENCE ở đầu ra.
+  entity_types:
+    - "SKILL"
+    - "EXPERIENCE"
+    - "MAJOR"
+
+  # Hyperparameters tối ưu tránh lỗi CUDA OOM
+  num_epochs: 5
+  train_batch_size: 4             
+  eval_batch_size: 4
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 512                 
+  max_neg_type_ratio: 1
+  gradient_accumulation_steps: 4  
+  gradient_checkpointing: true    
+
+  # Cấu hình lưu trữ và logs
+  output_dir: "./outputs/gliner_medium_v25_major"
+  save_steps: 500
+  eval_steps: 500
+  save_total_limit: 1             
+  save_only_model: true           
+  logging_steps: 50
+  wandb_project: null             
