@@ -32,11 +32,11 @@ def main():
     print_banner("RUNNING GLiNER NER INFERENCE ON TEST DATASET")
 
     # 1. Đường dẫn cấu hình
-    model_path = r"d:\download\glinner\glinner-small_v2.5"
+    model_path = r"D:\download\glinner\glinner_main"
     excel_input_path = r"c:\Users\loiha\Videos\dfghtraingliner\data_test\data_xin_1000_dong.xlsx"
     excel_output_path = r"c:\Users\loiha\Videos\dfghtraingliner\data_test\data_xin_1000_dong_predicted.xlsx"
     
-    threshold = 0.5
+    threshold = 0.6
     batch_size = 16
 
     # 2. Kiểm tra thiết bị phần cứng

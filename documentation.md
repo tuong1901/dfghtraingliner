@@ -7,7 +7,7 @@ Thư mục này chứa toàn bộ code training và benchmark cho **2 model**:
    - **Đầu ra**: Spans `[start, end, label]` với label ∈ `{SKILL, EXPERIENCE}`
 2. **Level Classifier** – Phân loại cấp bậc công việc
    - Đầu vào: `text` (chuỗi Job Description thuần)
-   - Đầu ra: `level` ∈ `{INTERN, FRESHER, JUNIOR, MIDDLE, SENIOR, MANAGER, LEAD_PLUS}` (các nhãn cao như LEAD, PRINCIPAL, ARCHITECT, DIRECTOR được gộp thành LEAD_PLUS, còn nhãn UNKNOWN thật hoặc EXECUTIVE bị loại bỏ)
+   - Đầu ra: `level` ∈ `{INTERN, FRESHER, JUNIOR, MIDDLE, SENIOR, LEAD_PLUS}` (các nhãn cao như LEAD, PRINCIPAL, ARCHITECT, DIRECTOR và cả MANAGER được gộp thành LEAD_PLUS, còn nhãn UNKNOWN thật hoặc EXECUTIVE bị loại bỏ)
 
 Dataset đầu vào: `../cleaned_dataset.json`
 
@@ -104,8 +104,17 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
 **Hàm chính:**
 - **`prepare_gliner_samples(data, entity_types, max_length)`**: Chuyển `cleaned_dataset.json` → GLiNER format `{text, entities: [{start, end, label}]}`. Lọc tự động label không trong entity_types, kiểm tra bounds, bỏ span rỗng
 - **`get_gliner_data_collator(model)`**: Tự động nhận diện phiên bản `gliner` (v0.1.x hay v0.2.x) để trả về class data collator thích hợp (`DataCollator`, `SpanDataCollator`, hoặc `BiEncoderSpanDataCollator`)
-- **`train_gliner(cfg)`**: Load GLiNER từ HuggingFace, setup Trainer riêng của GLiNER (dùng dynamic collator). Tải dataset và chia `val_ratio` (mặc định 20% trong config) thành 2 phần bằng nhau: 50% làm tập Validation (để chọn checkpoint tốt nhất) và 50% làm tập Test độc lập. Huấn luyện với fp16 nếu có GPU, lưu và xuất ra final model.
+- **`train_gliner(cfg)`**: Load GLiNER từ HuggingFace, setup Trainer riêng của GLiNER (dùng dynamic collator). Tải dataset và chia `val_ratio` (mặc định 20% trong config) thành 2 phần bằng nhau: 50% làm tập Validation (để chọn checkpoint tốt nhất) và 50% làm tập Test độc lập. Huấn luyện với fp16 nếu có GPU, lưu final model và tự động gọi các hàm từ `eval_gliner.py` để đánh giá Precision, Recall, F1 cùng Confusion Matrix chi tiết trên tập Test độc lập.
 - **`quick_test_gliner(model_dir, entity_types)`**: Test nhanh 1 câu mẫu sau train
+
+### `eval_gliner.py`
+**Script đánh giá chi tiết mô hình GLiNER NER** đã huấn luyện trên tập dữ liệu Test độc lập.
+
+**Hàm chính:**
+- **`compute_ner_confusion_matrix(predictions, gold_labels, entity_types)`**: Tính toán ma trận nhầm lẫn (Confusion Matrix) chi tiết ở mức độ khớp vị trí span (Overlap match) để chỉ ra các trường hợp dự đoán đúng (TP), dự đoán nhầm lẫn nhãn (vd: Gold là MAJOR nhưng Pred là SKILL), dự đoán thừa (FP) hoặc bỏ sót thực thể (FN).
+- **`print_confusion_matrix(cm, labels)`**: In bảng ma trận nhầm lẫn ra terminal dưới dạng ASCII Table trực quan.
+- **`compute_metrics_from_cm(cm, entity_types)`**: Tính toán Precision, Recall, F1-score chi tiết cho từng loại thực thể (`SKILL`, `EXPERIENCE`, `MAJOR`) và in ra bảng tổng kết.
+- **`main()`**: Hàm điều phối chính: Parse arguments dòng lệnh → Load config và model → Chia tập test và chạy dự đoán trên test set → Gọi hàm tính Confusion Matrix và lưu kết quả JSON tại thư mục model (`test_evaluation_report.json`).
 
 **Output:** `./outputs/gliner/final_model/` + `entity_types.json`
 
@@ -121,7 +130,7 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
 
 **Input/Output:**
 - Đầu vào: `text` (chuỗi Job Description thuần)
-- Đầu ra: `level` label (multi-class classification, 7 lớp sau khi lọc và map)
+- Đầu ra: `level` label (multi-class classification, 6 lớp sau khi lọc và map)
 
 **Hàm/class chính:**
 - **`JobLevelDataset`** (class): PyTorch Dataset. `__getitem__` → `{input_ids, attention_mask, labels}`
@@ -129,7 +138,7 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
     - `"head"`: lấy max_length token đầu
     - `"tail"`: lấy max_length token cuối (bắt requirements)
     - `"head+tail"`: 128 đầu + phần cuối (tốt nhất, mặc định)
-- **`OrdinalLoss`** (class): Custom loss function kết hợp CrossEntropyLoss (Weighted) và Distance Penalty (phạt khoảng cách tuần tự giữa các cấp bậc có thứ tự logic như INTERN -> FRESHER -> JUNIOR -> MIDDLE -> SENIOR -> MANAGER).
+- **`OrdinalLoss`** (class): Custom loss function kết hợp CrossEntropyLoss (Weighted) và Distance Penalty (phạt khoảng cách tuần tự giữa các cấp bậc có thứ tự logic như INTERN -> FRESHER -> JUNIOR -> MIDDLE -> SENIOR -> LEAD_PLUS).
 - **`train_classifier(cfg)`**: Training loop chính. Tải dataset và chia `val_ratio` (mặc định 20% trong config) thành 2 phần bằng nhau: 50% làm tập Validation (để chọn checkpoint tốt nhất và early stopping) và 50% làm tập Test độc lập. Sử dụng **OrdinalLoss** để giải quyết mất cân bằng dữ liệu và phạt dự đoán sai lệch cấp bậc. Cuối cùng, load best model và chạy đánh giá khách quan trên tập Test để in báo cáo chính xác.
 - **`quick_test_classifier(model_dir, level_labels)`**: Test 4 câu mẫu với levels khác nhau
 
@@ -312,8 +321,8 @@ train/
 - ✅ `EXPERIENCE`: Số năm kinh nghiệm ("3+ years", "Minimum 5 years"...)
 - ❌ `MAJOR`: **Không train** – đã bỏ khỏi GLiNER entity_types
 
-### Classifier: Level Classes (7 lớp chính, Option A)
-`INTERN` → `FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `MANAGER` → `LEAD_PLUS` (Các nhãn cao gồm `LEAD`, `PRINCIPAL`, `ARCHITECT`, `DIRECTOR` được gộp thành `LEAD_PLUS`, còn nhãn `UNKNOWN` thực tế và các nhãn khác như `EXECUTIVE` tự động bị loại bỏ khỏi dataset).
+### Classifier: Level Classes (6 lớp chính)
+`INTERN` → `FRESHER` → `JUNIOR` → `MIDDLE` → `SENIOR` → `LEAD_PLUS` (Các nhãn `LEAD`, `PRINCIPAL`, `ARCHITECT`, `DIRECTOR`, `MANAGER` được tự động gộp thành `LEAD_PLUS`, còn nhãn `UNKNOWN` thực tế và các nhãn khác như `EXECUTIVE` tự động bị loại bỏ khỏi dataset).
 
 ### Truncation strategy
 JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
@@ -398,12 +407,20 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Cập nhật [train_classifier.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_classifier.py) và [benchmark_classifier.py](file:///c:/Users/loiha/Videos/dfghtraingliner/benchmark_classifier.py): Thay đổi khởi tạo `best_f1` từ `0.0` thành `-1.0`. Điều này đảm bảo rằng mô hình luôn được lưu lại ở epoch đầu tiên ngay cả khi chỉ số F1 là 0.0, tránh lỗi nạp phải mô hình cũ/stale khi chạy thử chế độ debug (dry-run) với số mẫu cực nhỏ.
   - Cập nhật tài liệu chính [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
 - **2026-06-16 (Tích hợp LEAD_PLUS, khử cảnh báo độ dài và in Confusion Matrix)**:
-  - Cập nhật [utils.py](file:///c:/Users/loiha/Videos/dfghtraingliner/utils.py) và [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py): Triển khai ánh xạ nhãn Option A cho Level Classifier. Gộp các nhãn `LEAD`, `PRINCIPAL`, `ARCHITECT`, `DIRECTOR` thành `LEAD_PLUS`, đồng thời loại bỏ/xóa hoàn toàn các mẫu có nhãn `UNKNOWN` thực tế và các nhãn khác ngoài danh sách mục tiêu.
+  - Cập nhật [utils.py](file:///c:/Users/loiha/Videos/dfghtraingliner/utils.py) và [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py): Triển khai ánh xạ nhãn Option A cho Level Classifier. Gộp các nhãn `LEAD`, `PRINCIPAL`, `ARCHITECT`, `DIRECTOR`, và `MANAGER` thành `LEAD_PLUS`, đồng thời loại bỏ/xóa hoàn toàn các mẫu có nhãn `UNKNOWN` thực tế và các nhãn khác ngoài danh sách mục tiêu.
   - Cập nhật [train_classifier.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_classifier.py):
     - Khử cảnh báo độ dài chuỗi của Tokenizer bằng cách truyền `verbose=False` vào các lời gọi tokenizer.
     - Cập nhật `ordered_levels` trong `OrdinalLoss` để hỗ trợ tính toán khoảng cách phạt tuần tự cho `LEAD_PLUS`.
     - Tích hợp tính toán và hiển thị Confusion Matrix dạng bảng ASCII trực tiếp sau Classification Report trong hàm `evaluate()`.
   - Cập nhật [config.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config.yaml) và [config_debug.yaml](file:///c:/Users/loiha/Videos/dfghtraingliner/config_debug.yaml) để sử dụng danh sách nhãn mới (thay UNKNOWN bằng LEAD_PLUS).
+- **2026-06-16 (Đánh giá chi tiết và in Confusion Matrix cho GLiNER NER)**:
+  - Tạo script đánh giá độc lập [eval_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/eval_gliner.py) để tính Precision, Recall, F1 cùng bảng ma trận nhầm lẫn Confusion Matrix dạng ASCII trên tập Test độc lập.
+  - Tích hợp tự động gọi hàm đánh giá Confusion Matrix ở cuối script [train_gliner.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_gliner.py) ngay khi mô hình NER huấn luyện xong.
+  - Cập nhật đồng bộ các tài liệu chính [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/README.md) và [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
+- **2026-06-18 (Gộp MANAGER vào LEAD_PLUS và đồng bộ hóa)**:
+  - Cập nhật [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py) gộp nhãn `MANAGER` vào `LEAD_PLUS` để đồng bộ hoàn toàn với logic huấn luyện của Level Classifier.
+  - Huấn luyện lại bộ dữ liệu Level Classifier với nhãn gộp mới.
+
 
 
 

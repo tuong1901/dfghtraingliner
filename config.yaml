@@ -3,7 +3,7 @@
 # ============================================================
 
 run:
-  train_gliner: true          # true = train GLiNER NER model
+  train_gliner: false          # true = train GLiNER NER model
   train_classifier: true      # true = train Level Classifier
   run_benchmark: false        # true = benchmark nhiều Classifier (BERT/RoBERTa/...)
   run_benchmark_gliner: false # true = benchmark nhiều GLiNER architecture
@@ -81,7 +81,6 @@ classifier:
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
-    - "MANAGER"
     - "LEAD_PLUS"
 
   # Hệ số phạt khoảng cách khi học sai cấp bậc tuần tự (0.0 = không dùng)
@@ -137,7 +136,6 @@ benchmark:
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
-    - "MANAGER"
     - "LEAD_PLUS"
 
   # Hệ số phạt khoảng cách khi học sai cấp bậc tuần tự (0.0 = không dùng)

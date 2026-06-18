@@ -334,7 +334,7 @@ class OrdinalLoss(nn.Module):
         self.distance_matrix = None
         if level_labels is not None:
             num_labels = len(level_labels)
-            ordered_levels = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD", "LEAD_PLUS", "MANAGER", "DIRECTOR", "EXPERT"]
+            ordered_levels = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD_PLUS"]
             
             level_to_order_idx = {}
             for idx, lvl in enumerate(level_labels):
@@ -421,8 +421,7 @@ def train_classifier(cfg: dict):
     
     # 1. Level labels
     level_labels = [lv.upper() for lv in ccfg.get("level_labels", [
-        "INTERN", "FRESHER", "JUNIOR", "MIDDLE",
-        "SENIOR", "LEAD", "MANAGER", "DIRECTOR", "EXPERT", "UNKNOWN"
+        "INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD_PLUS"
     ])]
     num_labels = len(level_labels)
     print(f"[Classifier] Số lớp phân loại: {num_labels}")
@@ -773,7 +772,6 @@ if __name__ == "__main__":
     best_dir = train_classifier(cfg)
     
     level_labels = cfg["classifier"].get("level_labels", [
-        "INTERN", "FRESHER", "JUNIOR", "MIDDLE",
-        "SENIOR", "LEAD", "MANAGER", "DIRECTOR", "EXPERT", "UNKNOWN"
+        "INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD_PLUS"
     ])
     quick_test_classifier(best_dir, level_labels)

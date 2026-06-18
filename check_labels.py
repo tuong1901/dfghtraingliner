@@ -124,7 +124,7 @@ def main():
         
     # 5. Count mapped labels
     level_labels = [lv.upper() for lv in cfg["classifier"].get("level_labels", [
-        "INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "MANAGER", "LEAD_PLUS"
+        "INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD_PLUS"
     ])]
     
     mapped_counts = Counter()
@@ -132,9 +132,9 @@ def main():
     
     for item in data:
         lvl = str(item.get("level", "")).upper().strip()
-        if lvl in ["LEAD", "PRINCIPAL", "ARCHITECT", "DIRECTOR"]:
+        if lvl in ["LEAD", "PRINCIPAL", "ARCHITECT", "DIRECTOR", "MANAGER"]:
             mapped_lvl = "LEAD_PLUS"
-        elif lvl in ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "MANAGER"]:
+        elif lvl in ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR"]:
             mapped_lvl = lvl
         else:
             mapped_lvl = "[BỊ LỌC BỎ]"

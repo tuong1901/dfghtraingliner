@@ -21,6 +21,7 @@ train/
 │
 ├── train_master.py                   ← Script điều phối chính (chạy file này)
 ├── train_gliner.py                   ← Pipeline train GLiNER (single model, full epochs)
+├── eval_gliner.py                    ← Script đánh giá chi tiết GLiNER (F1, Precision, Recall, Confusion Matrix)
 ├── train_classifier.py               ← Pipeline train Level Classifier (single model)
 │
 ├── benchmark_gliner.py               ← Benchmark GLiNER: Baseline→FT→Post-eval (F1+nDCG@5,10)

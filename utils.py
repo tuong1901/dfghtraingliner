@@ -158,10 +158,10 @@ def load_dataset(
         # Lọc và map level
         if valid_levels is not None:
             lvl = str(d.get("level", "")).upper().strip()
-            # Map raw level to target level (Option A)
-            if lvl in ["LEAD", "PRINCIPAL", "ARCHITECT", "DIRECTOR"]:
+            # Map raw level to target level (Option A: gộp thêm MANAGER vào LEAD_PLUS)
+            if lvl in ["LEAD", "PRINCIPAL", "ARCHITECT", "DIRECTOR", "MANAGER"]:
                 mapped_lvl = "LEAD_PLUS"
-            elif lvl in ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "MANAGER"]:
+            elif lvl in ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR"]:
                 mapped_lvl = lvl
             else:
                 # Bỏ qua nhãn UNKNOWN thật, EXECUTIVE, hoặc rỗng

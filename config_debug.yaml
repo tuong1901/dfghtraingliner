@@ -54,7 +54,6 @@ classifier:
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
-    - "MANAGER"
     - "LEAD_PLUS"
   lambda_penalty: 1.0
 
@@ -90,7 +89,6 @@ benchmark:
     - "JUNIOR"
     - "MIDDLE"
     - "SENIOR"
-    - "MANAGER"
     - "LEAD_PLUS"
   lambda_penalty: 1.0
   models:
