@@ -158,6 +158,14 @@ def resolve_dataset_path(cfg: dict, config_path: str) -> dict:
         print(f"[Config] Dataset path: {cfg['data']['dataset_path']}")
     
     if not os.path.exists(cfg["data"]["dataset_path"]):
+        # Fallback to local directory
+        dataset_name = Path(dataset_path).name
+        local_alt = Path(config_path).parent / dataset_name
+        if local_alt.exists():
+            cfg["data"]["dataset_path"] = str(local_alt.resolve())
+            print(f"[Config] Dataset path fallback (cục bộ): {cfg['data']['dataset_path']}")
+            return cfg
+            
         print(f"\n[LỖI] Không tìm thấy dataset tại: {cfg['data']['dataset_path']}")
         print("Hãy kiểm tra lại 'data.dataset_path' trong config.yaml")
         sys.exit(1)

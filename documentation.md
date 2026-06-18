@@ -419,6 +419,7 @@ JD thường > 512 token. Chiến lược `head+tail` hiệu quả nhất:
   - Cập nhật đồng bộ các tài liệu chính [README.md](file:///c:/Users/loiha/Videos/dfghtraingliner/README.md) và [documentation.md](file:///c:/Users/loiha/Videos/dfghtraingliner/documentation.md).
 - **2026-06-18 (Gộp MANAGER vào LEAD_PLUS và đồng bộ hóa)**:
   - Cập nhật [check_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/check_labels.py) gộp nhãn `MANAGER` vào `LEAD_PLUS` để đồng bộ hoàn toàn với logic huấn luyện của Level Classifier.
+  - Thêm cơ chế tìm kiếm dataset fallback cục bộ trong [utils.py](file:///c:/Users/loiha/Videos/dfghtraingliner/utils.py) và [train_master.py](file:///c:/Users/loiha/Videos/dfghtraingliner/train_master.py) để tránh lỗi không tìm thấy dataset khi chạy cục bộ.
   - Huấn luyện lại bộ dữ liệu Level Classifier với nhãn gộp mới.
 
 

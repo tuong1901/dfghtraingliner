@@ -98,6 +98,22 @@ def load_dataset(
     Returns:
         (train_data, val_data): Hai list các dict
     """
+    # Check if dataset path exists, if not use fallback paths
+    from pathlib import Path
+    path_obj = Path(dataset_path)
+    if not path_obj.exists():
+        # Fallback to local directory
+        local_alt = Path(__file__).parent / path_obj.name
+        if local_alt.exists():
+            dataset_path = str(local_alt.resolve())
+            print(f"[Data] Dataset path fallback (cục bộ): {dataset_path}")
+        else:
+            # Fallback to parent directory
+            parent_alt = Path(__file__).parent.parent / path_obj.name
+            if parent_alt.exists():
+                dataset_path = str(parent_alt.resolve())
+                print(f"[Data] Dataset path fallback (thư mục cha): {dataset_path}")
+                
     print(f"[Data] Đang load dataset (streaming) từ: {dataset_path}")
     
     # Custom streaming JSON array parser để tránh MemoryError khi Ram thấp
