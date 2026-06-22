@@ -566,6 +566,9 @@ def train_classifier(cfg: dict):
     global_step = 0
     start_time = time.time()
     
+    # Initialize history logging
+    history = []
+    
     # Mixed precision
     use_amp = device == "cuda"
     scaler = torch.cuda.amp.GradScaler() if use_amp else None
@@ -628,6 +631,12 @@ def train_classifier(cfg: dict):
                     f"LR: {lr_now:.2e} | "
                     f"Time: {elapsed}"
                 )
+                history.append({
+                    "step": global_step,
+                    "epoch": epoch + (n_batches / len(train_loader)),
+                    "loss": avg_loss,
+                    "learning_rate": float(lr_now)
+                })
             
             # Evaluation
             if global_step % eval_steps == 0:
@@ -638,6 +647,13 @@ def train_classifier(cfg: dict):
                     f"Accuracy: {metrics['accuracy']:.4f} | "
                     f"F1(weighted): {metrics['f1_weighted']:.4f}"
                 )
+                history.append({
+                    "step": global_step,
+                    "epoch": epoch + (n_batches / len(train_loader)),
+                    "eval_loss": metrics["loss"],
+                    "eval_accuracy": metrics["accuracy"],
+                    "eval_f1_weighted": metrics["f1_weighted"]
+                })
                 
                 # Lưu best model
                 if metrics["f1_weighted"] > best_f1:
@@ -657,6 +673,13 @@ def train_classifier(cfg: dict):
             f"Accuracy: {metrics['accuracy']:.4f} | "
             f"F1(weighted): {metrics['f1_weighted']:.4f}"
         )
+        history.append({
+            "step": global_step,
+            "epoch": float(epoch),
+            "eval_loss": metrics["loss"],
+            "eval_accuracy": metrics["accuracy"],
+            "eval_f1_weighted": metrics["f1_weighted"]
+        })
         
         if metrics["f1_weighted"] > best_f1:
             best_f1 = metrics["f1_weighted"]
@@ -670,6 +693,15 @@ def train_classifier(cfg: dict):
     print(f"[Classifier] Best F1 (weighted): {best_f1:.4f}")
     print(f"[Classifier] Best model: {best_model_dir}")
     
+    # Save training history
+    history_path = os.path.join(output_dir, "loss_history.json")
+    try:
+        with open(history_path, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+        print(f"[Classifier] Đã lưu lịch sử training tại: {history_path}")
+    except Exception as e:
+        print(f"[CẢNH BÁO] Không thể lưu lịch sử training: {e}")
+
     # Lưu label mapping vào file json riêng
     label_map_path = os.path.join(best_model_dir, "label_map.json")
     with open(label_map_path, "w", encoding="utf-8") as f:

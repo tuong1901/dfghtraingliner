@@ -253,6 +253,10 @@ Ví dụ sử dụng:
         "--models", type=str, default=None,
         help="Danh sách các model GLiNER muốn chạy, cách nhau bằng dấu phẩy (vd: GLiNER-Small-v2.5,GLiNER-Medium-v2.5)"
     )
+    parser.add_argument(
+        "--eval-only", action="store_true",
+        help="Chỉ đánh giá mô hình đã train, vẽ biểu đồ loss và confusion matrix"
+    )
     args = parser.parse_args()
     
     # --- Resolve config path ---
@@ -268,6 +272,17 @@ Ví dụ sử dụng:
     
     print(f"[Config] Đang load: {config_path}")
     cfg = load_config(config_path)
+    
+    if args.eval_only:
+        print_banner("ĐÁNH GIÁ VÀ TRỰC QUAN HÓA TOÀN DIỆN MÔ HÌNH")
+        try:
+            import subprocess
+            cmd = [sys.executable, str(Path(__file__).parent / "eval_master.py"), "--config", args.config]
+            subprocess.run(cmd, check=True)
+            sys.exit(0)
+        except Exception as e:
+            print(f"[LỖI] Đánh giá thất bại: {e}")
+            sys.exit(1)
     
     # --- Override từ command line args ---
     if args.models:

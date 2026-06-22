@@ -318,6 +318,15 @@ def train_gliner(cfg: dict):
     
     trainer.train()
     
+    # Save log history
+    history_path = os.path.join(output_dir, "loss_history.json")
+    try:
+        with open(history_path, "w", encoding="utf-8") as f:
+            json.dump(trainer.state.log_history, f, ensure_ascii=False, indent=2)
+        print(f"[GLiNER] Đã lưu lịch sử training tại: {history_path}")
+    except Exception as e:
+        print(f"[CẢNH BÁO] Không thể lưu lịch sử training: {e}")
+        
     elapsed = format_time(time.time() - start_time)
     print(f"\n[GLiNER] Training hoàn tất sau {elapsed}")
     
