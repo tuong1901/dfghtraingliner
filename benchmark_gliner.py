@@ -1254,9 +1254,9 @@ def run_all_gliner_benchmarks(cfg: dict) -> List[Dict[str, Any]]:
 
     # 2. Chuyển sang GLiNER format
     max_length = bench_cfg.get("max_length", 1024)
-    train_samples = prepare_gliner_samples(train_data, entity_types, max_length)
-    val_samples   = prepare_gliner_samples(val_data,   entity_types, max_length)
-    test_samples  = prepare_gliner_samples(test_data,  entity_types, max_length)
+    train_samples = prepare_gliner_samples(train_data, entity_types, max_length, filter_empty=True)
+    val_samples   = prepare_gliner_samples(val_data,   entity_types, max_length, filter_empty=True)
+    test_samples  = prepare_gliner_samples(test_data,  entity_types, max_length, filter_empty=False)
     print(f"[Benchmark GLiNER] Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
 
     # 3. Data analysis

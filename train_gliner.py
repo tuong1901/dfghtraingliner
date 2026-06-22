@@ -47,6 +47,7 @@ def prepare_gliner_samples(
     data: List[dict],
     entity_types: List[str],
     max_length: int = 1024,
+    filter_empty: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Chuyển đổi dữ liệu từ cleaned_dataset.json sang format mà
@@ -125,6 +126,10 @@ def prepare_gliner_samples(
             if start_token_idx is not None and end_token_idx is not None and start_token_idx <= end_token_idx:
                 ner.append([start_token_idx, end_token_idx, label_upper])
         
+        if filter_empty and not ner:
+            skipped += 1
+            continue
+
         samples.append({
             "text": text,
             "tokenized_text": tokens,
@@ -133,7 +138,7 @@ def prepare_gliner_samples(
         })
     
     if skipped > 0:
-        print(f"[GLiNER] Bỏ qua {skipped} sample không hợp lệ")
+        print(f"[GLiNER] Bỏ qua hoặc lọc sạch {skipped} sample không hợp lệ / không có thực thể phù hợp")
     
     return samples
 
@@ -223,9 +228,9 @@ def train_gliner(cfg: dict):
     
     print(f"[GLiNER] Entity types: {entity_types}")
     print(f"[GLiNER] Chuẩn bị train samples...")
-    train_samples = prepare_gliner_samples(train_data, entity_types, max_length)
-    val_samples = prepare_gliner_samples(val_data, entity_types, max_length)
-    test_samples = prepare_gliner_samples(test_data, entity_types, max_length)
+    train_samples = prepare_gliner_samples(train_data, entity_types, max_length, filter_empty=True)
+    val_samples = prepare_gliner_samples(val_data, entity_types, max_length, filter_empty=True)
+    test_samples = prepare_gliner_samples(test_data, entity_types, max_length, filter_empty=False)
     
     print(f"[GLiNER] Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
     

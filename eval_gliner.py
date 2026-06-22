@@ -205,7 +205,7 @@ def main():
     
     max_length = cfg["gliner"].get("max_length", 1024)
     print(f"[*] Tạo {len(test_data)} mẫu test format GLiNER (max_length={max_length})...")
-    test_samples = prepare_gliner_samples(test_data, entity_types, max_length)
+    test_samples = prepare_gliner_samples(test_data, entity_types, max_length, filter_empty=False)
     
     # 4. Load model
     device = check_device()
