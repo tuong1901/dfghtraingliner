@@ -278,6 +278,19 @@ def run_gliner_eval(cfg: dict, figure_dir: str) -> Dict[str, Any]:
     print_ner_cm(cm, labels_cm)
     metrics = compute_metrics_from_cm(cm, entity_types)
     
+    # Tính nDCG@5 và nDCG@10
+    try:
+        from benchmark_gliner import compute_ndcg_corpus
+        ndcg_5 = compute_ndcg_corpus(all_predictions, gold_entities_list, k=5)
+        ndcg_10 = compute_ndcg_corpus(all_predictions, gold_entities_list, k=10)
+        print("="*28 + " ĐÁNH GIÁ ĐỘ PHÙ HỢP XẾP HẠNG (nDCG) " + "="*28)
+        print(f"  nDCG@5  : {ndcg_5:.4f}")
+        print(f"  nDCG@10 : {ndcg_10:.4f}")
+        print("="*84 + "\n")
+    except Exception as e:
+        print(f"[CẢNH BÁO] Không thể tính toán nDCG: {e}")
+        ndcg_5, ndcg_10 = 0.0, 0.0
+    
     # Chuyển cm dict thành np.ndarray để vẽ đồ thị
     cm_matrix = np.zeros((len(labels_cm), len(labels_cm)), dtype=int)
     for i, g_lbl in enumerate(labels_cm):
@@ -305,7 +318,9 @@ def run_gliner_eval(cfg: dict, figure_dir: str) -> Dict[str, Any]:
         "confusion_matrix": cm,
         "heatmap_img": "gliner_confusion_matrix.png",
         "loss_img": "gliner_loss_curve.png" if loss_plotted else None,
-        "elapsed": elapsed
+        "elapsed": elapsed,
+        "ndcg_at_5": ndcg_5,
+        "ndcg_at_10": ndcg_10
     }
 
 
@@ -504,6 +519,13 @@ def write_md_report(gliner_res: dict, clf_res: dict, report_path: str):
         
         overall = gliner_res["metrics"].get("OVERALL", {"precision":0, "recall":0, "f1":0})
         lines.append(f"| **TỔNG THỂ (OVERALL)** | **{overall['precision']:.4f}** | **{overall['recall']:.4f}** | **{overall['f1']:.4f}** |")
+        
+        # Thêm nDCG nếu có
+        if "ndcg_at_5" in gliner_res:
+            lines.append(f"\n- **nDCG@5**: `{gliner_res['ndcg_at_5']:.4f}`")
+        if "ndcg_at_10" in gliner_res:
+            lines.append(f"- **nDCG@10**: `{gliner_res['ndcg_at_10']:.4f}`")
+            
         lines.append(f"\n*Thời gian dự đoán tập Test: {gliner_res['elapsed']:.2f} giây.*")
         
         # Nhúng hình

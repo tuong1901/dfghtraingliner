@@ -247,6 +247,19 @@ def main():
     print_confusion_matrix(cm, entity_types + ["O"])
     compute_metrics_from_cm(cm, entity_types)
     
+    # 7. Tính nDCG@5 và nDCG@10
+    try:
+        from benchmark_gliner import compute_ndcg_corpus
+        ndcg_5 = compute_ndcg_corpus(all_predictions, gold_entities_list, k=5)
+        ndcg_10 = compute_ndcg_corpus(all_predictions, gold_entities_list, k=10)
+        print("="*28 + " ĐÁNH GIÁ ĐỘ PHÙ HỢP XẾP HẠNG (nDCG) " + "="*28)
+        print(f"  nDCG@5  : {ndcg_5:.4f}")
+        print(f"  nDCG@10 : {ndcg_10:.4f}")
+        print("="*84 + "\n")
+    except Exception as e:
+        print(f"[CẢNH BÁO] Không thể tính toán nDCG: {e}")
+        ndcg_5, ndcg_10 = 0.0, 0.0
+    
     # Lưu báo cáo vào thư mục model
     report_path = os.path.join(model_dir, "test_evaluation_report.json")
     with open(report_path, "w", encoding="utf-8") as f:
@@ -254,6 +267,8 @@ def main():
             "entity_types": entity_types,
             "threshold": args.threshold,
             "confusion_matrix": cm,
+            "ndcg_at_5": ndcg_5,
+            "ndcg_at_10": ndcg_10,
             "evaluation_time": time.strftime("%Y-%m-%d %H:%M:%S")
         }, f, ensure_ascii=False, indent=2)
     print(f"[✓] Đã xuất báo cáo JSON chi tiết tại: {report_path}")
