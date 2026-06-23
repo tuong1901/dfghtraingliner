@@ -29,14 +29,28 @@ except ImportError:
         return f"{seconds:.2f}s"
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="GLiNER NER Inference on Test Excel")
+    
+    base_dir = Path(__file__).resolve().parent
+    default_model = str((base_dir / ".." / "outputs" / "gliner" / "final_model").resolve())
+    if not os.path.exists(default_model):
+        default_model = r"D:\download\glinner\glinner_main"
+        
+    parser.add_argument("--model_path", type=str, default=default_model, help="Đường dẫn đến thư mục model GLiNER")
+    parser.add_argument("--excel_in", type=str, default=str((base_dir / "data_xin_1000_dong.xlsx").resolve()), help="File Excel đầu vào")
+    parser.add_argument("--excel_out", type=str, default=str((base_dir / "data_xin_1000_dong_predicted.xlsx").resolve()), help="File Excel đầu ra")
+    parser.add_argument("--threshold", type=float, default=0.6, help="Ngưỡng dự đoán (threshold)")
+    
+    args = parser.parse_args()
+    
     print_banner("RUNNING GLiNER NER INFERENCE ON TEST DATASET")
 
     # 1. Đường dẫn cấu hình
-    model_path = r"D:\download\glinner\glinner_main"
-    excel_input_path = r"c:\Users\loiha\Videos\dfghtraingliner\data_test\data_xin_1000_dong.xlsx"
-    excel_output_path = r"c:\Users\loiha\Videos\dfghtraingliner\data_test\data_xin_1000_dong_predicted.xlsx"
-    
-    threshold = 0.6
+    model_path = args.model_path
+    excel_input_path = args.excel_in
+    excel_output_path = args.excel_out
+    threshold = args.threshold
     batch_size = 16
 
     # 2. Kiểm tra thiết bị phần cứng
