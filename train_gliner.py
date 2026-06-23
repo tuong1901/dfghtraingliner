@@ -192,6 +192,7 @@ def train_gliner(cfg: dict):
     try:
         from gliner import GLiNER
         from gliner.training import Trainer, TrainingArguments
+        from transformers import EarlyStoppingCallback
     except ImportError as e:
         print(f"\n[LỖI] Chưa cài gliner hoặc lỗi import: {e}")
         print("Chạy lệnh sau:")
@@ -308,12 +309,18 @@ def train_gliner(cfg: dict):
     print("\n[GLiNER] Bắt đầu training...")
     start_time = time.time()
     
+    patience = gcfg.get("early_stopping_patience", 3)
+    callbacks = [EarlyStoppingCallback(early_stopping_patience=patience)] if patience else None
+    if callbacks:
+        print(f"[GLiNER] Bật Early Stopping với early_stopping_patience={patience}")
+    
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_samples,
         eval_dataset=val_samples,
         data_collator=get_gliner_data_collator(model),
+        callbacks=callbacks,
     )
     
     trainer.train()

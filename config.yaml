@@ -47,6 +47,7 @@ gliner:
   max_neg_type_ratio: 1    # Tỉ lệ negative entity type sampling
   gradient_accumulation_steps: 2 # Tích lũy gradient (mặc định cho model nhỏ)
   gradient_checkpointing: true   # Tích lũy gradient checkpointing (giảm activation memory)
+  early_stopping_patience: 3     # Độ kiên nhẫn khi dừng sớm (null để tắt)
 
   # Output
   output_dir: "./outputs/gliner"
@@ -238,6 +239,7 @@ benchmark_gliner:
   max_neg_type_ratio: 1      # Negative type ratio = 1 (với 2 entity types là phù hợp)
   gradient_accumulation_steps: 2  # Tích lũy gradient để effective batch = 16
   gradient_checkpointing: true    # Bật gradient checkpointing để giảm activation memory, chống OOM
+  early_stopping_patience: 3      # Độ kiên nhẫn khi dừng sớm (null để tắt)
   save_total_limit: 1             # Số checkpoint tối đa được giữ khi benchmark từng model
   save_only_model: true           # Chỉ lưu trọng số mô hình khi benchmark (giảm tải đĩa tối đa)
   # PYTORCH_ALLOC_CONF: Nếu vẫn bị OOM, thêm vào đầu lệnh chạy:

@@ -513,6 +513,7 @@ def run_single_gliner_benchmark(
     try:
         from gliner import GLiNER
         from gliner.training import Trainer, TrainingArguments
+        from transformers import EarlyStoppingCallback
         import torch
 
         set_seed(seed)
@@ -646,12 +647,18 @@ def run_single_gliner_benchmark(
 
         data_collator = get_gliner_data_collator(model)
 
+        patience = benchmark_cfg.get("early_stopping_patience", 3)
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=patience)] if patience else None
+        if callbacks:
+            print(f"  [{model_display}] Bật Early Stopping với early_stopping_patience={patience}")
+
         trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=train_samples,
             eval_dataset=val_samples,
             data_collator=data_collator,
+            callbacks=callbacks,
         )
 
         start_t = time.time()
