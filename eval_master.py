@@ -196,12 +196,12 @@ def plot_confusion_matrix_heatmap(cm_matrix: np.ndarray, labels: List[str], titl
 # ===========================================================================
 # 1. Đánh giá GLiNER NER Model
 # ===========================================================================
-def run_gliner_eval(cfg: dict, figure_dir: str) -> Dict[str, Any]:
+def run_gliner_eval(cfg: dict, figure_dir: str, model_dir_override: str = None) -> Dict[str, Any]:
     print_banner("ĐÁNH GIÁ MÔ HÌNH GLiNER NER")
     
     gcfg = cfg["gliner"]
     output_dir = gcfg.get("output_dir", "./outputs/gliner")
-    model_dir = os.path.join(output_dir, "final_model")
+    model_dir = model_dir_override if model_dir_override else os.path.join(output_dir, "final_model")
     
     if not os.path.exists(model_dir):
         print(f"[CẢNH BÁO] Không tìm thấy thư mục mô hình GLiNER tại: {model_dir}")
@@ -327,12 +327,12 @@ def run_gliner_eval(cfg: dict, figure_dir: str) -> Dict[str, Any]:
 # ===========================================================================
 # 2. Đánh giá Level Classifier Model
 # ===========================================================================
-def run_classifier_eval(cfg: dict, figure_dir: str) -> Dict[str, Any]:
+def run_classifier_eval(cfg: dict, figure_dir: str, model_dir_override: str = None) -> Dict[str, Any]:
     print_banner("ĐÁNH GIÁ MÔ HÌNH LEVEL CLASSIFIER")
     
     ccfg = cfg["classifier"]
     output_dir = ccfg.get("output_dir", "./outputs/classifier")
-    model_dir = os.path.join(output_dir, "best_model")
+    model_dir = model_dir_override if model_dir_override else os.path.join(output_dir, "best_model")
     
     if not os.path.exists(model_dir):
         print(f"[CẢNH BÁO] Không tìm thấy thư mục mô hình Level Classifier tại: {model_dir}")
@@ -581,6 +581,8 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="config.yaml", help="Đường dẫn tới file config.yaml")
     parser.add_argument("--gliner", action="store_true", help="Chỉ đánh giá mô hình GLiNER NER")
     parser.add_argument("--classifier", action="store_true", help="Chỉ đánh giá mô hình Level Classifier")
+    parser.add_argument("--model_path_gliner", type=str, default=None, help="Đường dẫn trực tiếp tới mô hình GLiNER NER")
+    parser.add_argument("--model_path_classifier", type=str, default=None, help="Đường dẫn trực tiếp tới mô hình Level Classifier")
     args = parser.parse_args()
     
     cfg = load_config(args.config)
@@ -610,7 +612,7 @@ if __name__ == "__main__":
     
     if args.gliner or run_all:
         try:
-            gliner_results = run_gliner_eval(cfg, figure_dir)
+            gliner_results = run_gliner_eval(cfg, figure_dir, model_dir_override=args.model_path_gliner)
         except Exception as e:
             print(f"[CẢNH BÁO] Đánh giá GLiNER thất bại: {e}")
             import traceback
@@ -620,7 +622,7 @@ if __name__ == "__main__":
         try:
             # import torch inside because checking device might be delayed
             import torch
-            classifier_results = run_classifier_eval(cfg, figure_dir)
+            classifier_results = run_classifier_eval(cfg, figure_dir, model_dir_override=args.model_path_classifier)
         except Exception as e:
             print(f"[CẢNH BÁO] Đánh giá Level Classifier thất bại: {e}")
             import traceback

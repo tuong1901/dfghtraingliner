@@ -25,13 +25,15 @@ Script dùng để chạy mô hình GLiNER NER đã huấn luyện trên file Ex
 - **Các thư viện liên kết**: `pandas`, `gliner`, `tqdm`, và module `utils` ở thư mục cha.
 - **Hàm/Logic chính**:
   - **`main()`**: Hàm điều phối luồng chính:
+    - Tích hợp `argparse` hỗ trợ các cờ lệnh ghi đè: `--model_path` (đường dẫn mô hình), `--excel_in` (Excel đầu vào), `--excel_out` (Excel đầu ra), và `--threshold` (ngưỡng dự đoán).
+    - Giải quyết các đường dẫn mặc định động bằng thư viện `pathlib` tương thích chéo nền tảng (Windows/Kaggle Linux), tự động tìm mô hình tại `outputs/gliner/final_model` và các file dữ liệu trong thư mục `data_test`.
     - Kiểm tra và cấu hình thiết bị phần cứng (GPU/CPU) bằng cách liên kết với hàm `check_device()` của [utils.py](file:///c:/Users/loiha/Videos/dfghtraingliner/utils.py).
-    - Tải mô hình GLiNER từ thư mục mô hình cục bộ `d:\download\glinner\glinner-small_v2.5`.
+    - Tải mô hình GLiNER từ thư mục mô hình đã chỉ định.
     - Tự động đọc danh sách nhãn thực thể từ `entity_types.json` trong thư mục mô hình.
-    - Đọc file dữ liệu kiểm thử `data_xin_1000_dong.xlsx`.
+    - Đọc file dữ liệu kiểm thử Excel.
     - Chạy dự đoán thực thể dạng vòng lặp từng câu sử dụng `model.predict_entities` được tối ưu hóa trong khối `with torch.no_grad()` để đảm bảo tính ổn định và kiểm soát dung lượng bộ nhớ RAM/VRAM.
     - Phân tích và lọc trùng các thực thể tìm được (tách riêng cột `predicted_skills` và `predicted_experience` dạng chuỗi ngăn cách bởi dấu phẩy, và lưu JSON gốc vào cột `predicted_entities_raw_json`).
-    - Lưu DataFrame kết quả vào file Excel mới: `data_xin_1000_dong_predicted.xlsx`.
+    - Lưu DataFrame kết quả vào file Excel mới.
     - In bảng thống kê chi tiết kết quả chạy thử nghiệm.
 
 ---
@@ -65,6 +67,16 @@ Script này dùng để làm sạch và giải quyết chồng lấn nhãn trong
 
 ---
 
+### 5. [visualize_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/visualize_labels.py)
+Script này dùng để tạo giao diện trực quan hóa nhãn vàng đã gán dưới dạng trang web HTML tương tác đầy đủ, cho phép lọc theo loại thực thể, cấp bậc công việc (Level), và tìm kiếm văn bản.
+
+- **Các thư viện liên kết**: `json`, `html`, `os`.
+- **Hàm/Logic chính**:
+  - **`highlight_text(text, labels)`**: Lọc, sắp xếp và giải quyết chồng chéo các nhãn thực thể, sau đó bọc các span từ nhãn bằng thẻ HTML với các CSS Class thích hợp (`skill`, `experience`, `major`) để làm nổi bật.
+  - **`main()`**: Đọc dữ liệu từ `data_xin_1000_dong_gold_backup.json`, tiền xử lý, tính toán thống kê tổng số thực thể và phân phối các loại nhãn, sau đó ghi toàn bộ dữ liệu này và mã giao diện HTML/JS vào file [visualize_labels.html](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/visualize_labels.html).
+
+---
+
 ## Mối liên kết giữa các tệp tin và luồng xử lý
 
 ```mermaid
@@ -78,6 +90,8 @@ graph TD
     
     Output -->|benchmark_predicted.py| Report[benchmark_report.txt]
     CleanedGold -->|benchmark_predicted.py| Report
+    
+    GoldBackup[data_xin_1000_dong_gold_backup.json] -->|visualize_labels.py| Visualizer[visualize_labels.html]
 ```
 
 1. **`get_data.py`** tạo ra file dữ liệu mẫu dạng Excel `data_xin_1000_dong.xlsx`.
@@ -85,3 +99,4 @@ graph TD
 3. **`build_dataset_v3.py`** (nằm ở thư mục root) sử dụng DeepSeek V3 API để gán nhãn chuẩn từ file Excel `data_xin_1000_dong.xlsx`, xuất ra file JSON nhãn chuẩn `data_xin_1000_dong_gold.json`.
 4. **`clean_gold_labels.py`** làm sạch và giải quyết chồng lấn trong file nhãn vàng `data_xin_1000_dong_gold.json`.
 5. **`benchmark_predicted.py`** đối chiếu kết quả dự đoán trong file Excel `data_xin_1000_dong_predicted.xlsx` với nhãn chuẩn đã làm sạch trong file JSON `data_xin_1000_dong_gold.json`, tính toán độ chính xác và xuất báo cáo `benchmark_report.txt`.
+6. **`visualize_labels.py`** đọc dữ liệu từ `data_xin_1000_dong_gold_backup.json` và tạo ra trang trực quan hóa tương tác `visualize_labels.html`.

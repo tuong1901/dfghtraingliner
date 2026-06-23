@@ -257,6 +257,14 @@ Ví dụ sử dụng:
         "--eval-only", action="store_true",
         help="Chỉ đánh giá mô hình đã train, vẽ biểu đồ loss và confusion matrix"
     )
+    parser.add_argument(
+        "--model_path_gliner", type=str, default=None,
+        help="Đường dẫn mô hình GLiNER NER muốn đánh giá (sử dụng cùng --eval-only)"
+    )
+    parser.add_argument(
+        "--model_path_classifier", type=str, default=None,
+        help="Đường dẫn mô hình Level Classifier muốn đánh giá (sử dụng cùng --eval-only)"
+    )
     args = parser.parse_args()
     
     # --- Resolve config path ---
@@ -278,6 +286,10 @@ Ví dụ sử dụng:
         try:
             import subprocess
             cmd = [sys.executable, str(Path(__file__).parent / "eval_master.py"), "--config", args.config]
+            if args.model_path_gliner:
+                cmd.extend(["--model_path_gliner", args.model_path_gliner])
+            if args.model_path_classifier:
+                cmd.extend(["--model_path_classifier", args.model_path_classifier])
             subprocess.run(cmd, check=True)
             sys.exit(0)
         except Exception as e:
