@@ -912,6 +912,12 @@ def print_results_table(results: List[Dict[str, Any]]):
         print(f"\n🏆 Best F1 (weighted): {best['name']} ({best['f1_weighted']:.4f})")
         print(f"🥇 Best F1 (macro)   : {best_macro['name']} ({best_macro['f1_macro']:.4f})")
         print(f"⚡ Fastest           : {fastest['name']} ({fastest['train_time']})")
+        
+        print("\n=== Thư mục lưu trữ Checkpoint các mô hình (Best Checkpoints) ===")
+        for r in sorted_results:
+            if r["status"] == "SUCCESS":
+                print(f"  - {r['name']:<20} : {r.get('model_dir', 'N/A')}")
+
 
 
 # ----------------------------------------------------------------
@@ -1051,6 +1057,11 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
         lines.append(f"Best F1 (weighted): {best['name']} — F1={best['f1_weighted']:.4f}")
         best_macro = max(success_r, key=lambda r: r.get("f1_macro", 0))
         lines.append(f"Best F1 (macro)   : {best_macro['name']} — F1={best_macro['f1_macro']:.4f}")
+        
+        lines.append("\n=== Thư mục lưu trữ Checkpoint các mô hình (Best Checkpoints) ===")
+        for r in sorted_r:
+            if r["status"] == "SUCCESS":
+                lines.append(f"- {r['name']:<20} : {r.get('model_dir', 'N/A')}")
 
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
