@@ -128,7 +128,10 @@ def run_single_benchmark(
         truncation_strategy = benchmark_cfg.get("truncation_strategy", "head+tail")
         logging_steps = benchmark_cfg.get("logging_steps", 100)
         lambda_penalty = benchmark_cfg.get("lambda_penalty", 1.0)
+        early_stopping_patience = benchmark_cfg.get("early_stopping_patience", None)
         print(f"[{model_display_name}] Ordinal lambda_penalty: {lambda_penalty}")
+        if early_stopping_patience:
+            print(f"[{model_display_name}] Early stopping patience: {early_stopping_patience}")
 
         train_batch_size = model_cfg.get("train_batch_size", 16)
         eval_batch_size = model_cfg.get("eval_batch_size", 32)
@@ -229,8 +232,15 @@ def run_single_benchmark(
         # Custom loss
         loss_fct = OrdinalLoss(class_weights=class_weights, level_labels=level_labels, lambda_penalty=lambda_penalty).to(device)
 
+        # Lịch sử train (theo dõi loss và metrics từng epoch)
+        train_history = []
+        early_stop_counter = 0
+        stop_training = False
+
         model.train()
         for epoch in range(1, num_epochs + 1):
+            if stop_training:
+                break
             epoch_loss = 0.0
             n_batches = 0
 
@@ -279,28 +289,64 @@ def run_single_benchmark(
                         f"loss={avg_l:.4f} | lr={lr_now:.2e} | {elapsed}"
                     )
 
-            # Evaluate cuối epoch
+            avg_train_loss = epoch_loss / max(n_batches, 1)
+
+            # Evaluate cuối epoch (tắt verbose để không spam per-class mỗi epoch)
             print(f"\n[{model_display_name}] Evaluate sau Epoch {epoch}...")
-            metrics = evaluate(model, val_loader, device, level_labels, loss_fct=loss_fct)
+            metrics = evaluate(model, val_loader, device, level_labels, loss_fct=loss_fct, verbose=False)
             print(
-                f"  Loss={metrics['loss']:.4f} | "
+                f"  Train Loss={avg_train_loss:.4f} | "
+                f"Val Loss={metrics['loss']:.4f} | "
                 f"Acc={metrics['accuracy']:.4f} | "
-                f"F1={metrics['f1_weighted']:.4f}"
+                f"F1w={metrics['f1_weighted']:.4f} | "
+                f"F1m={metrics['f1_macro']:.4f} | "
+                f"MCC={metrics['mcc']:.4f} | "
+                f"Top2={metrics['top2_accuracy']:.4f}"
             )
+
+            # Lưu lịch sử
+            train_history.append({
+                "epoch": epoch,
+                "train_loss": round(avg_train_loss, 6),
+                "val_loss": round(metrics["loss"], 6),
+                "val_accuracy": round(metrics["accuracy"], 6),
+                "val_f1_weighted": round(metrics["f1_weighted"], 6),
+                "val_f1_macro": round(metrics["f1_macro"], 6),
+                "val_mcc": round(metrics["mcc"], 6),
+                "val_kappa": round(metrics["cohen_kappa"], 6),
+                "val_top2_acc": round(metrics["top2_accuracy"], 6),
+            })
 
             if metrics["f1_weighted"] > best_f1:
                 best_f1 = metrics["f1_weighted"]
                 best_metrics = metrics.copy()
+                early_stop_counter = 0
                 os.makedirs(best_model_dir, exist_ok=True)
                 model.save_pretrained(best_model_dir)
                 tokenizer.save_pretrained(best_model_dir)
-                print(f"  *** Best! F1={best_f1:.4f} -> Saved ***\n")
+                print(f"  *** Best! F1={best_f1:.4f} → Saved ***\n")
+            else:
+                early_stop_counter += 1
+                patience_str = str(early_stopping_patience) if early_stopping_patience else "–"
+                print(f"  [EarlyStopping] Không cải thiện ({early_stop_counter}/{patience_str})")
+                if early_stopping_patience and early_stop_counter >= early_stopping_patience:
+                    print(f"  [EarlyStopping] Dừng sớm tại epoch {epoch}!")
+                    stop_training = True
 
             model.train()
 
         train_time_sec = time.time() - start_time
         train_time_str = format_time(train_time_sec)
-        print(f"[{model_display_name}] Hoàn thành sau {train_time_str}")
+        epochs_run = len(train_history)
+        print(f"[{model_display_name}] Hoàn thành sau {train_time_str} ({epochs_run}/{num_epochs} epochs)")
+
+        # Lưu training history
+        history_path = os.path.join(model_output_dir, "training_history.json")
+        with open(history_path, "w", encoding="utf-8") as f:
+            json.dump(train_history, f, ensure_ascii=False, indent=2)
+        print(f"  Lịch sử train → {history_path}")
+
+
 
         # Lưu label map
         label_map_path = os.path.join(best_model_dir, "label_map.json")
@@ -316,7 +362,7 @@ def run_single_benchmark(
         print(f"[{model_display_name}] Đánh giá khách quan trên tập TEST thực tế bằng best model...")
         best_model = AutoModelForSequenceClassification.from_pretrained(best_model_dir).to(device)
         best_tokenizer = AutoTokenizer.from_pretrained(best_model_dir)
-        
+
         test_dataset = JobLevelDataset(
             test_data, best_tokenizer, level_labels, max_length, truncation_strategy
         )
@@ -327,29 +373,88 @@ def run_single_benchmark(
             collate_fn=collate_fn,
             num_workers=0,
         )
-        
-        test_metrics = evaluate(best_model, test_loader, device, level_labels, loss_fct=loss_fct)
-        print("\n" + "="*60)
-        print(f"  [{model_display_name}] KẾT QUẢ ĐÁNH GIÁ TRÊN TẬP TEST ĐỘC LẬP (TEST SET)")
-        print("="*60)
-        print(f"  Test Loss: {test_metrics['loss']:.4f}")
-        print(f"  Test Accuracy: {test_metrics['accuracy']:.4f}")
+
+        # verbose=True để in đầy đủ per-class report + confusion matrix ra terminal
+        test_metrics = evaluate(best_model, test_loader, device, level_labels, loss_fct=loss_fct, verbose=True)
+        print("\n" + "="*70)
+        print(f"  [{model_display_name}] KẾT QUẢ TRÊN TẬP TEST ĐỘC LẬP")
+        print("="*70)
+        print(f"  Test Loss         : {test_metrics['loss']:.4f}")
+        print(f"  Test Accuracy     : {test_metrics['accuracy']:.4f}")
         print(f"  Test F1 (weighted): {test_metrics['f1_weighted']:.4f}")
-        print("="*60 + "\n")
+        print(f"  Test F1 (macro)   : {test_metrics['f1_macro']:.4f}")
+        print(f"  Test MCC          : {test_metrics['mcc']:.4f}")
+        print(f"  Test Cohen Kappa  : {test_metrics['cohen_kappa']:.4f}")
+        print(f"  Test Top-2 Acc    : {test_metrics['top2_accuracy']:.4f}")
+        print("\n  === Per-class (Test Set) ===")
+        for cls_name, cls_m in test_metrics.get("per_class", {}).items():
+            print(f"  {cls_name:<12}: P={cls_m['precision']:.4f} | R={cls_m['recall']:.4f} | F1={cls_m['f1']:.4f} | Support={cls_m['support']}")
+        print("="*70 + "\n")
+
+        # Lưu báo cáo đầy đủ ra file
+        import csv
+        report_path = os.path.join(model_output_dir, "test_report.txt")
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(f"Model: {model_display_name} ({model_name})\n")
+            f.write(f"Epochs run: {epochs_run}/{num_epochs}\n")
+            f.write(f"Train time: {train_time_str}\n\n")
+            f.write("=== Aggregate Metrics (Test Set) ===\n")
+            f.write(f"  Loss         : {test_metrics['loss']:.6f}\n")
+            f.write(f"  Accuracy     : {test_metrics['accuracy']:.6f}\n")
+            f.write(f"  F1 (weighted): {test_metrics['f1_weighted']:.6f}\n")
+            f.write(f"  F1 (macro)   : {test_metrics['f1_macro']:.6f}\n")
+            f.write(f"  MCC          : {test_metrics['mcc']:.6f}\n")
+            f.write(f"  Cohen Kappa  : {test_metrics['cohen_kappa']:.6f}\n")
+            f.write(f"  Top-2 Acc    : {test_metrics['top2_accuracy']:.6f}\n\n")
+            f.write("=== Classification Report ===\n")
+            f.write(test_metrics.get("classification_report_str", "") + "\n")
+            f.write("=== Training History ===\n")
+            for h in train_history:
+                f.write(json.dumps(h) + "\n")
+        print(f"  Báo cáo đầy đủ → {report_path}")
+
+        # Lưu confusion matrix (raw count)
+        cm = test_metrics.get("confusion_matrix")
+        present_names = test_metrics.get("present_names", level_labels)
+        if cm is not None:
+            cm_path = os.path.join(model_output_dir, "confusion_matrix.csv")
+            with open(cm_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["True\\Pred"] + present_names)
+                for i, row_name in enumerate(present_names):
+                    writer.writerow([row_name] + [int(cm[i, j]) for j in range(len(present_names))])
+            print(f"  Confusion matrix (raw) → {cm_path}")
+
+            cm_norm = test_metrics.get("confusion_matrix_norm")
+            if cm_norm is not None:
+                cm_norm_path = os.path.join(model_output_dir, "confusion_matrix_normalized.csv")
+                with open(cm_norm_path, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["True\\Pred"] + present_names)
+                    for i, row_name in enumerate(present_names):
+                        writer.writerow([row_name] + [f"{cm_norm[i, j]:.4f}" for j in range(len(present_names))])
+                print(f"  Confusion matrix (norm) → {cm_norm_path}")
 
         result.update({
-            "accuracy": test_metrics.get("accuracy", 0.0),
-            "f1_weighted": test_metrics.get("f1_weighted", 0.0),
-            "test_loss": test_metrics.get("loss", 99.9),
-            "train_time": train_time_str,
+            "accuracy":       test_metrics.get("accuracy", 0.0),
+            "f1_weighted":    test_metrics.get("f1_weighted", 0.0),
+            "f1_macro":       test_metrics.get("f1_macro", 0.0),
+            "mcc":            test_metrics.get("mcc", 0.0),
+            "cohen_kappa":    test_metrics.get("cohen_kappa", 0.0),
+            "top2_accuracy":  test_metrics.get("top2_accuracy", 0.0),
+            "test_loss":      test_metrics.get("loss", 99.9),
+            "per_class":      test_metrics.get("per_class", {}),
+            "train_time":     train_time_str,
             "train_time_sec": train_time_sec,
-            "model_dir": best_model_dir,
-            "n_params": n_params,
-            "status": "SUCCESS",
+            "epochs_run":     epochs_run,
+            "model_dir":      best_model_dir,
+            "n_params":       n_params,
+            "status":         "SUCCESS",
         })
 
         # Giải phóng GPU memory
         del model
+        del best_model
         try:
             torch.cuda.empty_cache()
         except Exception:
@@ -366,23 +471,23 @@ def run_single_benchmark(
     return result
 
 
+
 # ----------------------------------------------------------------
 # In bảng kết quả
 # ----------------------------------------------------------------
 def print_results_table(results: List[Dict[str, Any]]):
     """
     In bảng so sánh kết quả benchmark dạng ASCII table đẹp.
-
-    Args:
-        results: List các dict kết quả từ run_single_benchmark()
+    Bao gồm: Accuracy, F1 (weighted), F1 (macro), MCC, Kappa, Top-2 Acc.
+    Theo sau là per-class F1 summary.
     """
-    print_banner("KẾT QUẢ BENCHMARK")
+    print_banner("KẾT QUẢ BENCHMARK — TỔNG HỢP")
 
-    # Header
+    # Bảng 1: Aggregate metrics
     col_widths = {
-        "name": 20, "model_name": 32, "accuracy": 12,
-        "f1_weighted": 12, "test_loss": 12, "train_time": 12,
-        "n_params": 14, "status": 8
+        "name": 18, "model_name": 30, "accuracy": 10,
+        "f1_weighted": 10, "f1_macro": 10, "mcc": 8,
+        "cohen_kappa": 8, "top2_accuracy": 10, "train_time": 12, "status": 8
     }
 
     def row_sep():
@@ -397,43 +502,87 @@ def print_results_table(results: List[Dict[str, Any]]):
 
     headers = {
         "name": "Model Name", "model_name": "HuggingFace ID",
-        "accuracy": "Acc (Test)", "f1_weighted": "F1 (Test)",
-        "test_loss": "Test Loss", "train_time": "Train Time",
-        "n_params": "# Params", "status": "Status"
+        "accuracy": "Acc(Test)", "f1_weighted": "F1w(Test)",
+        "f1_macro": "F1m(Test)", "mcc": "MCC",
+        "cohen_kappa": "Kappa", "top2_accuracy": "Top2-Acc",
+        "train_time": "Train Time", "status": "Status"
     }
 
     print(row_sep())
     print(row_data(headers))
     print(row_sep())
 
-    # Sắp xếp theo F1 giảm dần (SUCCESS trước, FAILED sau)
     sorted_results = sorted(
         results,
         key=lambda r: (r["status"] != "SUCCESS", -r.get("f1_weighted", 0))
     )
 
     for r in sorted_results:
+        ok = r["status"] == "SUCCESS"
         display = {
             "name": r["name"],
             "model_name": r["model_name"],
-            "accuracy": f"{r.get('accuracy', 0):.4f}" if r["status"] == "SUCCESS" else "FAILED",
-            "f1_weighted": f"{r.get('f1_weighted', 0):.4f}" if r["status"] == "SUCCESS" else "FAILED",
-            "test_loss": f"{r.get('test_loss', 0):.4f}" if r["status"] == "SUCCESS" else "FAILED",
-            "train_time": r.get("train_time", "N/A"),
-            "n_params": f"{r.get('n_params', 0):,}" if r.get("n_params") else "N/A",
-            "status": r["status"],
+            "accuracy":     f"{r.get('accuracy', 0):.4f}" if ok else "FAILED",
+            "f1_weighted":  f"{r.get('f1_weighted', 0):.4f}" if ok else "FAILED",
+            "f1_macro":     f"{r.get('f1_macro', 0):.4f}" if ok else "FAILED",
+            "mcc":          f"{r.get('mcc', 0):.4f}" if ok else "FAILED",
+            "cohen_kappa":  f"{r.get('cohen_kappa', 0):.4f}" if ok else "FAILED",
+            "top2_accuracy":f"{r.get('top2_accuracy', 0):.4f}" if ok else "FAILED",
+            "train_time":   r.get("train_time", "N/A"),
+            "status":       r["status"],
         }
         print(row_data(display))
 
     print(row_sep())
 
-    # Tìm winner
+    # Bảng 2: Per-class F1 summary
+    level_labels_order = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD_PLUS"]
     success_results = [r for r in results if r["status"] == "SUCCESS"]
+
+    if success_results and any(r.get("per_class") for r in success_results):
+        print("\n=== Per-class F1 trên Test Set ===")
+        all_classes = sorted({
+            cls for r in success_results
+            for cls in r.get("per_class", {}).keys()
+        }, key=lambda c: level_labels_order.index(c) if c in level_labels_order else 99)
+
+        pc_widths = {"name": 18}
+        for cls in all_classes:
+            pc_widths[cls] = max(len(cls), 8)
+
+        def pc_sep():
+            return "+" + "+".join("-" * (w + 2) for w in pc_widths.values()) + "+"
+        def pc_row(vals):
+            cells = []
+            for key, w in pc_widths.items():
+                v = str(vals.get(key, "N/A"))
+                cells.append(f" {v[:w]:<{w}} ")
+            return "|" + "|".join(cells) + "|"
+
+        pc_header = {"name": "Model"}
+        for cls in all_classes:
+            pc_header[cls] = f"F1-{cls}"
+        print(pc_sep())
+        print(pc_row(pc_header))
+        print(pc_sep())
+        for r in sorted_results:
+            if r["status"] != "SUCCESS":
+                continue
+            row_vals = {"name": r["name"]}
+            for cls in all_classes:
+                cls_info = r.get("per_class", {}).get(cls, {})
+                row_vals[cls] = f"{cls_info.get('f1', 0):.4f}" if cls_info else "N/A"
+            print(pc_row(row_vals))
+        print(pc_sep())
+
+    # Winner
     if success_results:
         best = max(success_results, key=lambda r: r.get("f1_weighted", 0))
+        best_macro = max(success_results, key=lambda r: r.get("f1_macro", 0))
         fastest = min(success_results, key=lambda r: r.get("train_time_sec", float("inf")))
-        print(f"\n🏆 Best F1    : {best['name']} ({best['f1_weighted']:.4f})")
-        print(f"⚡ Fastest    : {fastest['name']} ({fastest['train_time']})")
+        print(f"\n🏆 Best F1 (weighted): {best['name']} ({best['f1_weighted']:.4f})")
+        print(f"🥇 Best F1 (macro)   : {best_macro['name']} ({best_macro['f1_macro']:.4f})")
+        print(f"⚡ Fastest           : {fastest['name']} ({fastest['train_time']})")
 
 
 # ----------------------------------------------------------------
@@ -442,8 +591,8 @@ def print_results_table(results: List[Dict[str, Any]]):
 def save_results(results: List[Dict[str, Any]], output_dir: str):
     """
     Lưu kết quả benchmark ra 2 file:
-    - benchmark_results.txt : Bảng ASCII (dễ đọc)
-    - benchmark_results.csv : CSV (dễ import vào Excel/Sheets)
+    - benchmark_results.csv : CSV đầy đủ (dễ import vào Excel/Sheets)
+    - benchmark_results.txt : Bảng ASCII (dễ đọc, có per-class summary)
 
     Args:
         results   : List kết quả benchmark
@@ -451,63 +600,108 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    # --- CSV ---
+    # --- CSV với đầy đủ metrics ---
     csv_path = os.path.join(output_dir, "benchmark_results.csv")
     fieldnames = [
         "name", "model_name", "status",
-        "accuracy", "f1_weighted", "test_loss",
-        "train_time", "train_time_sec", "n_params",
-        "model_dir", "error"
+        "accuracy", "f1_weighted", "f1_macro", "mcc", "cohen_kappa", "top2_accuracy",
+        "test_loss", "train_time", "train_time_sec", "epochs_run",
+        "n_params", "model_dir", "error"
     ]
+    # Thêm per-class columns
+    level_labels_order = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD_PLUS"]
+    all_classes = sorted({
+        cls for r in results for cls in r.get("per_class", {}).keys()
+    }, key=lambda c: level_labels_order.index(c) if c in level_labels_order else 99)
+
+    for cls in all_classes:
+        fieldnames += [f"{cls}_precision", f"{cls}_recall", f"{cls}_f1", f"{cls}_support"]
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for r in results:
-            # Format float đẹp
             row = dict(r)
-            for k in ["accuracy", "f1_weighted", "test_loss"]:
+            # Flatten float fields
+            for k in ["accuracy", "f1_weighted", "f1_macro", "mcc", "cohen_kappa", "top2_accuracy", "test_loss"]:
                 if isinstance(row.get(k), float):
                     row[k] = f"{row[k]:.6f}"
+            # Flatten per_class
+            for cls in all_classes:
+                cls_info = r.get("per_class", {}).get(cls, {})
+                row[f"{cls}_precision"] = f"{cls_info.get('precision', 0):.6f}" if cls_info else ""
+                row[f"{cls}_recall"]    = f"{cls_info.get('recall', 0):.6f}" if cls_info else ""
+                row[f"{cls}_f1"]        = f"{cls_info.get('f1', 0):.6f}" if cls_info else ""
+                row[f"{cls}_support"]   = cls_info.get("support", "") if cls_info else ""
+            # Xóa fields không phải string/int/float
+            row.pop("per_class", None)
+            row.pop("confusion_matrix", None)
+            row.pop("confusion_matrix_norm", None)
+            row.pop("all_preds", None)
+            row.pop("all_labels", None)
+            row.pop("present_labels", None)
+            row.pop("present_names", None)
+            row.pop("classification_report_str", None)
             writer.writerow(row)
 
     print(f"\n[Benchmark] Kết quả CSV: {csv_path}")
 
-    # --- TXT (bảng ASCII) ---
+    # --- TXT (bảng ASCII đầy đủ) ---
     txt_path = os.path.join(output_dir, "benchmark_results.txt")
     lines = []
-    lines.append("=" * 100)
-    lines.append("BENCHMARK RESULTS - Level Classifier")
-    lines.append("=" * 100)
-    lines.append(f"{'Model':<22} {'HuggingFace ID':<35} {'Acc (Test)':>10} {'F1 (Test)':>10} {'Loss (Test)':>12} {'Time':>12} {'Params':>14} {'Status'}")
-    lines.append("-" * 100)
+    lines.append("=" * 120)
+    lines.append("BENCHMARK RESULTS — Level Classifier")
+    lines.append("=" * 120)
+    header_str = (
+        f"{'Model':<20} {'HuggingFace ID':<33} "
+        f"{'Acc':>8} {'F1w':>8} {'F1m':>8} {'MCC':>8} "
+        f"{'Kappa':>8} {'Top2':>8} {'Loss':>10} {'Time':>12} {'Epochs':>8} {'Status'}"
+    )
+    lines.append(header_str)
+    lines.append("-" * 120)
 
     sorted_r = sorted(results, key=lambda r: (r["status"] != "SUCCESS", -r.get("f1_weighted", 0)))
     for r in sorted_r:
         if r["status"] == "SUCCESS":
+            ep_str = f"{r.get('epochs_run', '?')}"
             lines.append(
-                f"{r['name']:<22} {r['model_name']:<35} "
-                f"{r.get('accuracy', 0):>10.4f} {r.get('f1_weighted', 0):>10.4f} "
-                f"{r.get('test_loss', 0):>12.4f} {r.get('train_time', 'N/A'):>12} "
-                f"{r.get('n_params', 0):>14,} {'OK'}"
+                f"{r['name']:<20} {r['model_name']:<33} "
+                f"{r.get('accuracy', 0):>8.4f} {r.get('f1_weighted', 0):>8.4f} "
+                f"{r.get('f1_macro', 0):>8.4f} {r.get('mcc', 0):>8.4f} "
+                f"{r.get('cohen_kappa', 0):>8.4f} {r.get('top2_accuracy', 0):>8.4f} "
+                f"{r.get('test_loss', 0):>10.4f} {r.get('train_time', 'N/A'):>12} "
+                f"{ep_str:>8} OK"
             )
         else:
-            lines.append(
-                f"{r['name']:<22} {r['model_name']:<35} "
-                f"{'FAILED':>8} {'FAILED':>8} {'FAILED':>8} {'N/A':>12} "
-                f"{'N/A':>14} FAILED"
-            )
+            lines.append(f"{r['name']:<20} {r['model_name']:<33} {'FAILED':>8} {'—':>8} {'—':>8} {'—':>8} {'—':>8} {'—':>8} {'—':>10} {'N/A':>12} {'—':>8} FAILED")
             if r.get("error"):
-                lines.append(f"  Error: {r['error'][:80]}")
+                lines.append(f"  Error: {r['error'][:100]}")
 
-    lines.append("=" * 100)
+    lines.append("=" * 120)
 
-    success_results = [r for r in results if r["status"] == "SUCCESS"]
-    if success_results:
-        best = max(success_results, key=lambda r: r.get("f1_weighted", 0))
-        fastest = min(success_results, key=lambda r: r.get("train_time_sec", float("inf")))
-        lines.append(f"Best F1     : {best['name']} - F1={best['f1_weighted']:.4f}")
-        lines.append(f"Fastest     : {fastest['name']} - {fastest['train_time']}")
+    # Per-class F1 summary
+    success_r = [r for r in results if r["status"] == "SUCCESS" and r.get("per_class")]
+    if success_r and all_classes:
+        lines.append("\n=== Per-class F1 (Test Set) ===")
+        pc_header = f"{'Model':<20}" + "".join(f" {cls:>12}" for cls in all_classes)
+        lines.append(pc_header)
+        lines.append("-" * (20 + 13 * len(all_classes)))
+        for r in sorted_r:
+            if r["status"] != "SUCCESS":
+                continue
+            row_str = f"{r['name']:<20}"
+            for cls in all_classes:
+                cls_f1 = r.get("per_class", {}).get(cls, {}).get("f1", None)
+                row_str += f" {cls_f1:>12.4f}" if cls_f1 is not None else f" {'N/A':>12}"
+            lines.append(row_str)
+        lines.append("=" * (20 + 13 * len(all_classes)))
+
+    # Winner summary
+    if success_r:
+        best = max(success_r, key=lambda r: r.get("f1_weighted", 0))
+        lines.append(f"Best F1 (weighted): {best['name']} — F1={best['f1_weighted']:.4f}")
+        best_macro = max(success_r, key=lambda r: r.get("f1_macro", 0))
+        lines.append(f"Best F1 (macro)   : {best_macro['name']} — F1={best_macro['f1_macro']:.4f}")
 
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
@@ -515,6 +709,8 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
     print(f"[Benchmark] Kết quả TXT: {txt_path}")
 
     return csv_path, txt_path
+
+
 
 
 # ----------------------------------------------------------------

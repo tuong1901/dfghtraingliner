@@ -139,12 +139,19 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
     - `"tail"`: lấy max_length token cuối (bắt requirements)
     - `"head+tail"`: 128 đầu + phần cuối (tốt nhất, mặc định)
 - **`OrdinalLoss`** (class): Custom loss function kết hợp CrossEntropyLoss (Weighted) và Distance Penalty (phạt khoảng cách tuần tự giữa các cấp bậc có thứ tự logic như INTERN -> FRESHER -> JUNIOR -> MIDDLE -> SENIOR -> LEAD_PLUS).
+- **`evaluate(model, dataloader, device, level_labels, loss_fct, verbose)`**: Đánh giá model toàn diện, trả về dict đầy đủ metrics:
+  - **Aggregate**: `accuracy`, `f1_weighted`, `f1_macro`, `mcc` (Matthews Correlation Coefficient), `cohen_kappa` (Quadratic Weighted Kappa), `top2_accuracy` (label thực nằm trong top-2 prediction)
+  - **Per-class**: dict `{class_name: {precision, recall, f1, support}}` cho từng class (INTERN, FRESHER, ...)
+  - **Confusion Matrix**: `confusion_matrix` (raw count), `confusion_matrix_norm` (normalized theo hàng %)
+  - **Khác**: `all_preds`, `all_labels`, `classification_report_str` (text report)
+  - Tham số `verbose=True` (mặc định) sẽ in report và confusion matrix ra terminal; `verbose=False` chỉ trả về dict (dùng trong training loop để tránh spam)
 - **`train_classifier(cfg)`**: Training loop chính. Tải dataset và chia `val_ratio` (mặc định 20% trong config) thành 2 phần bằng nhau: 50% làm tập Validation (để chọn checkpoint tốt nhất và early stopping) và 50% làm tập Test độc lập. Sử dụng **OrdinalLoss** để giải quyết mất cân bằng dữ liệu và phạt dự đoán sai lệch cấp bậc. Cuối cùng, load best model và chạy đánh giá khách quan trên tập Test để in báo cáo chính xác.
 - **`quick_test_classifier(model_dir, level_labels)`**: Test 4 câu mẫu với levels khác nhau
 
 **Output:** `./outputs/classifier/best_model/` + `label_map.json`
 
 ---
+
 
 ### `benchmark_classifier.py`
 **Script so sánh nhiều BERT-family Encoder-only model** (Nhóm BERT tiếng Anh). Dùng kèm config.yaml.

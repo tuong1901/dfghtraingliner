@@ -37,6 +37,7 @@ benchmark:
   truncation_strategy: "head+tail"
   logging_steps: 100
   lambda_penalty: 1.0    # Ordinal loss penalty (giống training chính)
+  early_stopping_patience: 3  # Dừng sớm sau 3 epoch không cải thiện (null để tắt)
 
   level_labels:
     - "INTERN"
