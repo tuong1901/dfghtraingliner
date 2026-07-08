@@ -226,37 +226,64 @@ def evaluate(
     device: str,
     level_labels: List[str],
     loss_fct=None,
-) -> Dict[str, float]:
+    verbose: bool = True,
+) -> Dict[str, Any]:
     """
-    Đánh giá model trên validation set.
-    Tính accuracy, weighted F1, và per-class F1.
+    Đánh giá model trên validation/test set.
+    Trả về đầy đủ metrics bao gồm per-class, confusion matrix,
+    MCC, Kappa, Macro F1, Weighted F1, Top-2 Accuracy.
 
     Args:
-        model       : BERT classification model
-        dataloader  : Val DataLoader
-        device      : "cuda" hoặc "cpu"
-        level_labels: Danh sách các level
-        loss_fct    : Loss function tùy chọn (để tính val loss đồng nhất)
+        model        : BERT classification model
+        dataloader   : Val/Test DataLoader
+        device       : "cuda" hoặc "cpu"
+        level_labels : Danh sách các level
+        loss_fct     : Loss function tùy chọn (để tính val loss đồng nhất)
+        verbose      : Nếu True, in report ra terminal
 
     Returns:
-        Dict metrics: {"accuracy": float, "f1_weighted": float, "loss": float}
+        Dict metrics đầy đủ:
+        {
+            "loss": float,
+            "accuracy": float,
+            "f1_weighted": float,
+            "f1_macro": float,
+            "mcc": float,                          # Matthews Correlation Coefficient
+            "cohen_kappa": float,                   # Cohen's Kappa
+            "top2_accuracy": float,                 # Dự đoán đúng trong 2 lựa chọn cao nhất
+            "per_class": {                          # Metrics từng class
+                "INTERN": {"precision": f, "recall": f, "f1": f, "support": int},
+                ...
+            },
+            "confusion_matrix": np.ndarray,         # Ma trận nhầm lẫn (raw count)
+            "confusion_matrix_norm": np.ndarray,    # Ma trận nhầm lẫn (normalized theo hàng)
+            "all_preds": List[int],
+            "all_labels": List[int],
+            "present_labels": List[int],
+            "present_names": List[str],
+            "classification_report_str": str,
+        }
     """
     import torch
     import torch.nn.functional as F
-    from sklearn.metrics import classification_report, f1_score
-    
+    from sklearn.metrics import (
+        classification_report, f1_score, accuracy_score,
+        confusion_matrix, matthews_corrcoef, cohen_kappa_score,
+    )
+
     model.eval()
     all_preds = []
     all_labels = []
+    all_logits = []
     total_loss = 0.0
     n_batches = 0
-    
+
     with torch.no_grad():
         for batch in dataloader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
-            
+
             kwargs = {
                 "input_ids": input_ids,
                 "attention_mask": attention_mask,
@@ -264,61 +291,134 @@ def evaluate(
             }
             if "token_type_ids" in batch:
                 kwargs["token_type_ids"] = batch["token_type_ids"].to(device)
-            
+
             outputs = model(**kwargs)
             logits = outputs.logits
-            
+
             if loss_fct is not None:
                 loss = loss_fct(logits, labels)
             else:
                 loss = outputs.loss
-                
+
             total_loss += loss.item()
             preds = logits.argmax(dim=-1).cpu().numpy()
             all_preds.extend(preds)
             all_labels.extend(labels.cpu().numpy())
+            all_logits.append(logits.cpu())
             n_batches += 1
-    
+
+    # --- Aggregate metrics ---
     avg_loss = total_loss / max(n_batches, 1)
-    accuracy = np.mean(np.array(all_preds) == np.array(all_labels))
-    f1 = f1_score(all_labels, all_preds, average="weighted", zero_division=0)
-    
-    # Per-class report
+    accuracy = float(np.mean(np.array(all_preds) == np.array(all_labels)))
+    f1_weighted = f1_score(all_labels, all_preds, average="weighted", zero_division=0)
+    f1_macro = f1_score(all_labels, all_preds, average="macro", zero_division=0)
+
+    try:
+        mcc = matthews_corrcoef(all_labels, all_preds)
+    except Exception:
+        mcc = 0.0
+
+    try:
+        kappa = cohen_kappa_score(all_labels, all_preds, weights="quadratic")
+    except Exception:
+        kappa = 0.0
+
+    # Top-2 Accuracy (dự đoán đúng nếu label thực nằm trong top-2 xem xét cao nhất)
+    try:
+        import torch
+        all_logits_t = torch.cat(all_logits, dim=0)  # [N, num_classes]
+        top2_preds = all_logits_t.topk(min(2, all_logits_t.shape[1]), dim=-1).indices.numpy()
+        top2_correct = sum(all_labels[i] in top2_preds[i] for i in range(len(all_labels)))
+        top2_acc = top2_correct / max(len(all_labels), 1)
+    except Exception:
+        top2_acc = 0.0
+
+    # --- Per-class metrics ---
     present_labels = sorted(set(all_labels))
     present_names = [level_labels[i] for i in present_labels]
-    report = classification_report(
+
+    report_dict = classification_report(
+        all_labels, all_preds,
+        labels=present_labels,
+        target_names=present_names,
+        zero_division=0,
+        output_dict=True,
+    )
+    report_str = classification_report(
         all_labels, all_preds,
         labels=present_labels,
         target_names=present_names,
         zero_division=0,
     )
-    print("\n[Classifier] Classification Report:")
-    print(report)
-    
-    # Confusion Matrix
-    try:
-        from sklearn.metrics import confusion_matrix
-        cm = confusion_matrix(all_labels, all_preds, labels=present_labels)
-        print("[Classifier] Confusion Matrix:")
-        max_len = max(len(name) for name in present_names)
-        max_len = max(max_len, 11) # minimum width for "True \ Pred" column
-        
-        header = f"{'True \\ Pred':<{max_len}} |" + "".join(f" {present_names[i]:<{max_len}}" for i in range(len(present_labels)))
-        print(header)
-        print("-" * len(header))
-        for i in range(len(present_labels)):
-            row_str = f"{present_names[i]:<{max_len}} |" + "".join(f" {cm[i, j]:<{max_len}}" for j in range(len(present_labels)))
-            print(row_str)
+
+    per_class = {}
+    for name in present_names:
+        if name in report_dict:
+            per_class[name] = {
+                "precision": round(report_dict[name]["precision"], 4),
+                "recall":    round(report_dict[name]["recall"], 4),
+                "f1":        round(report_dict[name]["f1-score"], 4),
+                "support":   int(report_dict[name]["support"]),
+            }
+
+    # --- Confusion Matrix ---
+    cm = confusion_matrix(all_labels, all_preds, labels=present_labels)
+    # Normalize theo hàng (tỷ lệ đoán đúng của từng class thực tế)
+    row_sums = cm.sum(axis=1, keepdims=True)
+    cm_norm = np.where(row_sums > 0, cm.astype(float) / row_sums, 0.0)
+
+    if verbose:
+        print("\n[Classifier] Classification Report:")
+        print(report_str)
+        print(f"  Accuracy     : {accuracy:.4f}")
+        print(f"  F1 (weighted): {f1_weighted:.4f}")
+        print(f"  F1 (macro)   : {f1_macro:.4f}")
+        print(f"  MCC          : {mcc:.4f}")
+        print(f"  Kappa (κ)    : {kappa:.4f}")
+        print(f"  Top-2 Acc    : {top2_acc:.4f}")
         print()
-    except Exception as e:
-        print(f"[CẢNH BÁO] Không thể in confusion matrix: {e}")
-    
+
+        # In Confusion Matrix
+        try:
+            max_len = max(max(len(n) for n in present_names), 12)
+            header = f"{'True \\ Pred':<{max_len}} |" + "".join(f" {n:<{max_len}}" for n in present_names)
+            print("[Classifier] Confusion Matrix (raw count):")
+            print(header)
+            print("-" * len(header))
+            for i, row_name in enumerate(present_names):
+                row_str = f"{row_name:<{max_len}} |" + "".join(f" {cm[i, j]:<{max_len}}" for j in range(len(present_names)))
+                print(row_str)
+            print()
+
+            print("[Classifier] Confusion Matrix (normalized by row, %):")
+            print(header)
+            print("-" * len(header))
+            for i, row_name in enumerate(present_names):
+                row_str = f"{row_name:<{max_len}} |" + "".join(f" {cm_norm[i,j]*100:>{max_len}.1f}" for j in range(len(present_names)))
+                print(row_str)
+            print()
+        except Exception as e:
+            print(f"[CẢNH BÁO] Không thể in confusion matrix: {e}")
+
     model.train()
     return {
         "loss": avg_loss,
         "accuracy": accuracy,
-        "f1_weighted": f1,
+        "f1_weighted": f1_weighted,
+        "f1_macro": f1_macro,
+        "mcc": mcc,
+        "cohen_kappa": kappa,
+        "top2_accuracy": top2_acc,
+        "per_class": per_class,
+        "confusion_matrix": cm,
+        "confusion_matrix_norm": cm_norm,
+        "all_preds": list(all_preds),
+        "all_labels": list(all_labels),
+        "present_labels": present_labels,
+        "present_names": present_names,
+        "classification_report_str": report_str,
     }
+
 
 
 class OrdinalLoss(nn.Module):

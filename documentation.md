@@ -173,6 +173,7 @@ python benchmark_classifier.py --config config_benchmark_vietnamese.yaml
 ```
 
 **Hàm chính:**
+- **`evaluate(model, dataloader, device, level_labels, loss_fct, verbose)`**: Hàm đánh giá cục bộ tích hợp đầy đủ các metrics chi tiết (Accuracy, Weighted/Macro F1, MCC, Cohen's Kappa, Top-2 Accuracy, Confusion Matrix) giúp chạy độc lập mà không bị phụ thuộc phiên bản của `train_classifier.py` trên môi trường Kaggle.
 - **`run_single_benchmark(model_cfg, ...)`**: Train + evaluate 1 model, lưu checkpoint tốt nhất, đánh giá trên tập Test độc lập → `{accuracy, f1_weighted, test_loss, train_time, n_params, status}`.
 - **`run_all_benchmarks(cfg)`**: Load dataset và split val 50%/50% → val/test. Chạy tuần tự tất cả model enabled.
 - **`print_results_table(results)`**: In bảng ASCII so sánh, highlight winner.

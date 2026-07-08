@@ -49,7 +49,178 @@ from utils import (
     print_banner, check_device, format_time
 )
 # Tái dùng Dataset và các hàm từ train_classifier.py
-from train_classifier import JobLevelDataset, collate_fn, evaluate, OrdinalLoss
+from train_classifier import JobLevelDataset, collate_fn, OrdinalLoss
+
+# ----------------------------------------------------------------
+# Hàm Evaluate cục bộ tích hợp đầy đủ metrics & Confusion Matrix
+# ----------------------------------------------------------------
+def evaluate(
+    model,
+    dataloader,
+    device: str,
+    level_labels: List[str],
+    loss_fct=None,
+    verbose: bool = True,
+) -> Dict[str, Any]:
+    """
+    Đánh giá model trên validation/test set.
+    Trả về đầy đủ metrics bao gồm per-class, confusion matrix,
+    MCC, Kappa, Macro F1, Weighted F1, Top-2 Accuracy.
+    """
+    import torch
+    import torch.nn.functional as F
+    from sklearn.metrics import (
+        classification_report, f1_score, accuracy_score,
+        confusion_matrix, matthews_corrcoef, cohen_kappa_score,
+    )
+
+    model.eval()
+    all_preds = []
+    all_labels = []
+    all_logits = []
+    total_loss = 0.0
+    n_batches = 0
+
+    with torch.no_grad():
+        for batch in dataloader:
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            labels = batch["labels"].to(device)
+
+            kwargs = {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "labels": labels,
+            }
+            if "token_type_ids" in batch:
+                kwargs["token_type_ids"] = batch["token_type_ids"].to(device)
+
+            outputs = model(**kwargs)
+            logits = outputs.logits
+
+            if loss_fct is not None:
+                loss = loss_fct(logits, labels)
+            else:
+                loss = outputs.loss
+
+            total_loss += loss.item()
+            preds = logits.argmax(dim=-1).cpu().numpy()
+            all_preds.extend(preds)
+            all_labels.extend(labels.cpu().numpy())
+            all_logits.append(logits.cpu())
+            n_batches += 1
+
+    # --- Aggregate metrics ---
+    avg_loss = total_loss / max(n_batches, 1)
+    accuracy = float(np.mean(np.array(all_preds) == np.array(all_labels)))
+    f1_weighted = f1_score(all_labels, all_preds, average="weighted", zero_division=0)
+    f1_macro = f1_score(all_labels, all_preds, average="macro", zero_division=0)
+
+    try:
+        mcc = matthews_corrcoef(all_labels, all_preds)
+    except Exception:
+        mcc = 0.0
+
+    try:
+        kappa = cohen_kappa_score(all_labels, all_preds, weights="quadratic")
+    except Exception:
+        kappa = 0.0
+
+    # Top-2 Accuracy
+    try:
+        all_logits_t = torch.cat(all_logits, dim=0)  # [N, num_classes]
+        top2_preds = all_logits_t.topk(min(2, all_logits_t.shape[1]), dim=-1).indices.numpy()
+        top2_correct = sum(all_labels[i] in top2_preds[i] for i in range(len(all_labels)))
+        top2_acc = top2_correct / max(len(all_labels), 1)
+    except Exception:
+        top2_acc = 0.0
+
+    # --- Per-class metrics ---
+    present_labels = sorted(set(all_labels))
+    present_names = [level_labels[i] for i in present_labels]
+
+    report_dict = classification_report(
+        all_labels, all_preds,
+        labels=present_labels,
+        target_names=present_names,
+        zero_division=0,
+        output_dict=True,
+    )
+    report_str = classification_report(
+        all_labels, all_preds,
+        labels=present_labels,
+        target_names=present_names,
+        zero_division=0,
+    )
+
+    per_class = {}
+    for name in present_names:
+        if name in report_dict:
+            per_class[name] = {
+                "precision": round(report_dict[name]["precision"], 4),
+                "recall":    round(report_dict[name]["recall"], 4),
+                "f1":        round(report_dict[name]["f1-score"], 4),
+                "support":   int(report_dict[name]["support"]),
+            }
+
+    # --- Confusion Matrix ---
+    cm = confusion_matrix(all_labels, all_preds, labels=present_labels)
+    # Normalize theo hàng
+    row_sums = cm.sum(axis=1, keepdims=True)
+    cm_norm = np.where(row_sums > 0, cm.astype(float) / row_sums, 0.0)
+
+    if verbose:
+        print("\n[Classifier] Classification Report:")
+        print(report_str)
+        print(f"  Accuracy     : {accuracy:.4f}")
+        print(f"  F1 (weighted): {f1_weighted:.4f}")
+        print(f"  F1 (macro)   : {f1_macro:.4f}")
+        print(f"  MCC          : {mcc:.4f}")
+        print(f"  Kappa (κ)    : {kappa:.4f}")
+        print(f"  Top-2 Acc    : {top2_acc:.4f}")
+        print()
+
+        # In Confusion Matrix
+        try:
+            max_len = max(max(len(n) for n in present_names), 12)
+            header = f"{'True \\ Pred':<{max_len}} |" + "".join(f" {n:<{max_len}}" for n in present_names)
+            print("[Classifier] Confusion Matrix (raw count):")
+            print(header)
+            print("-" * len(header))
+            for i, row_name in enumerate(present_names):
+                row_str = f"{row_name:<{max_len}} |" + "".join(f" {cm[i, j]:<{max_len}}" for j in range(len(present_names)))
+                print(row_str)
+            print()
+
+            print("[Classifier] Confusion Matrix (normalized by row, %):")
+            print(header)
+            print("-" * len(header))
+            for i, row_name in enumerate(present_names):
+                row_str = f"{row_name:<{max_len}} |" + "".join(f" {cm_norm[i,j]*100:>{max_len}.1f}" for j in range(len(present_names)))
+                print(row_str)
+            print()
+        except Exception as e:
+            print(f"[CẢNH BÁO] Không thể in confusion matrix: {e}")
+
+    model.train()
+    return {
+        "loss": avg_loss,
+        "accuracy": accuracy,
+        "f1_weighted": f1_weighted,
+        "f1_macro": f1_macro,
+        "mcc": mcc,
+        "cohen_kappa": kappa,
+        "top2_accuracy": top2_acc,
+        "per_class": per_class,
+        "confusion_matrix": cm,
+        "confusion_matrix_norm": cm_norm,
+        "all_preds": list(all_preds),
+        "all_labels": list(all_labels),
+        "present_labels": present_labels,
+        "present_names": present_names,
+        "classification_report_str": report_str,
+    }
+
 
 
 # ----------------------------------------------------------------
@@ -179,7 +350,7 @@ def run_single_benchmark(
             label2id=label2id,
             ignore_mismatched_sizes=True,
         )
-        model = model.to(device)
+        model = model.float().to(device)  # Ép kiểu float32 để tránh lỗi gradients FP16 khi dùng AMP trên T4
 
         # Tính class weights để xử lý mất cân bằng nhãn
         print(f"[{model_display_name}] Tính class weights xử lý mất cân bằng...")
@@ -217,9 +388,9 @@ def run_single_benchmark(
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
         )
 
-        # Mixed precision
+        # Mixed precision (sử dụng API torch.amp mới thay thế torch.cuda.amp bị deprecated)
         use_amp = device == "cuda"
-        scaler = torch.cuda.amp.GradScaler() if use_amp else None
+        scaler = torch.amp.GradScaler("cuda") if use_amp else None
 
         # --- Training Loop ---
         print(f"[{model_display_name}] Bắt đầu train ({num_epochs} epochs)...")
@@ -261,7 +432,7 @@ def run_single_benchmark(
                 optimizer.zero_grad()
 
                 if use_amp:
-                    with torch.cuda.amp.autocast():
+                    with torch.amp.autocast("cuda"):
                         outputs = model(**kwargs)
                         loss = loss_fct(outputs.logits, labels_t)
                     scaler.scale(loss).backward()
@@ -275,6 +446,7 @@ def run_single_benchmark(
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                     optimizer.step()
+
 
                 scheduler.step()
                 epoch_loss += loss.item()
@@ -360,7 +532,7 @@ def run_single_benchmark(
 
         # Đánh giá khách quan trên tập test bằng best model vừa lưu
         print(f"[{model_display_name}] Đánh giá khách quan trên tập TEST thực tế bằng best model...")
-        best_model = AutoModelForSequenceClassification.from_pretrained(best_model_dir).to(device)
+        best_model = AutoModelForSequenceClassification.from_pretrained(best_model_dir).float().to(device)
         best_tokenizer = AutoTokenizer.from_pretrained(best_model_dir)
 
         test_dataset = JobLevelDataset(
