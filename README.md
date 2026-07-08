@@ -5,7 +5,7 @@ Thư mục chứa toàn bộ pipeline **training, benchmark và evaluation** cho
 | Model | Task | Input | Output |
 |-------|------|-------|--------|
 | **GLiNER** | NER | Job Description (text) | Spans: `{SKILL, EXPERIENCE}` |
-| **Level Classifier** | Text Classification | Job Description (text) | Level: `INTERN → DIRECTOR` |
+| **Level Classifier** | Text Classification | Job Description (text) | Level: `INTERN → LEAD_PLUS` |
 
 ---
 
@@ -48,7 +48,7 @@ train/
 ## 🚀 Cách chạy nhanh
 
 ```bash
-cd d:\OCR\New_folder\train
+cd d:\dfghtraingliner
 pip install -r requirements.txt
 
 # Train đầy đủ (GLiNER + Classifier theo config.yaml)
@@ -326,8 +326,8 @@ File `cleaned_dataset.json` (tạo bởi các script ở thư mục cha):
   - `SKILL`: Kỹ năng kỹ thuật (Python, Docker, React...)
   - `EXPERIENCE`: Số năm kinh nghiệm ("3+ years", "Minimum 5 years"...)
   - ❌ `MAJOR` đã bị loại khỏi GLiNER training
-- `level`: Cấp bậc job — 1 trong 10 class:
-  `INTERN | FRESHER | JUNIOR | MIDDLE | SENIOR | LEAD | MANAGER | DIRECTOR | EXPERT | UNKNOWN`
+- `level`: Cấp bậc job — gồm 7 lớp (Option A):
+  `INTERN | FRESHER | JUNIOR | MIDDLE | SENIOR | MANAGER | LEAD_PLUS` (Trong đó các nhãn cao gồm `LEAD`, `PRINCIPAL`, `ARCHITECT`, `DIRECTOR` được gộp lại thành `LEAD_PLUS`, còn nhãn `UNKNOWN` thực tế và các nhãn thiểu số khác như `EXECUTIVE` được tự động loại bỏ để đảm bảo dữ liệu sạch).
 
 ---
 

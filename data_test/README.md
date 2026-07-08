@@ -6,7 +6,7 @@ Thư mục này chứa dữ liệu kiểm thử và các kịch bản (scripts) 
 
 ## Danh sách tệp tin và mô tả chi tiết
 
-### 1. [get_data.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/get_data.py)
+### 1. [get_data.py](file:///d:/dfghtraingliner/data_test/get_data.py)
 Script này dùng để tải dữ liệu từ Hugging Face và tạo file Excel phục vụ cho việc kiểm thử.
 
 - **Các thư viện liên kết**: `pandas`, `datasets` (Hugging Face)
@@ -19,7 +19,7 @@ Script này dùng để tải dữ liệu từ Hugging Face và tạo file Excel
 
 ---
 
-### 2. [test_model.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/test_model.py)
+### 2. [test_model.py](file:///d:/dfghtraingliner/data_test/test_model.py)
 Script dùng để chạy mô hình GLiNER NER đã huấn luyện trên file Excel kiểm thử, nhằm trích xuất thông tin `SKILL` và `EXPERIENCE`.
 
 - **Các thư viện liên kết**: `pandas`, `gliner`, `tqdm`, và module `utils` ở thư mục cha.
@@ -38,7 +38,7 @@ Script dùng để chạy mô hình GLiNER NER đã huấn luyện trên file Ex
 
 ---
 
-### 3. [benchmark_predicted.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/benchmark_predicted.py)
+### 3. [benchmark_predicted.py](file:///d:/dfghtraingliner/data_test/benchmark_predicted.py)
 Script dùng để so sánh, đối chiếu kết quả trích xuất thực thể của GLiNER với nhãn chuẩn của DeepSeek V3 bằng hai phương pháp: Exact Match (khớp chính xác) và Overlap Match (khớp giao nhau).
 
 - **Các thư viện liên kết**: `pandas`, `json`.
@@ -54,7 +54,7 @@ Script dùng để so sánh, đối chiếu kết quả trích xuất thực th�
 
 ---
 
-### 4. [clean_gold_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/clean_gold_labels.py)
+### 4. [clean_gold_labels.py](file:///d:/dfghtraingliner/data_test/clean_gold_labels.py)
 Script này dùng để làm sạch và giải quyết chồng lấn nhãn trong tập nhãn vàng DeepSeek V3 (`data_xin_1000_dong_gold.json`).
 
 - **Các thư viện liên kết**: `shutil`, `json`, `re`.
@@ -67,13 +67,13 @@ Script này dùng để làm sạch và giải quyết chồng lấn nhãn trong
 
 ---
 
-### 5. [visualize_labels.py](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/visualize_labels.py)
+### 5. [visualize_labels.py](file:///d:/dfghtraingliner/data_test/visualize_labels.py)
 Script này dùng để tạo giao diện trực quan hóa nhãn vàng đã gán dưới dạng trang web HTML tương tác đầy đủ, cho phép lọc theo loại thực thể, cấp bậc công việc (Level), và tìm kiếm văn bản.
 
 - **Các thư viện liên kết**: `json`, `html`, `os`.
 - **Hàm/Logic chính**:
   - **`highlight_text(text, labels)`**: Lọc, sắp xếp và giải quyết chồng chéo các nhãn thực thể, sau đó bọc các span từ nhãn bằng thẻ HTML với các CSS Class thích hợp (`skill`, `experience`, `major`) để làm nổi bật.
-  - **`main()`**: Đọc dữ liệu từ `data_xin_1000_dong_gold_backup.json`, tiền xử lý, tính toán thống kê tổng số thực thể và phân phối các loại nhãn, sau đó ghi toàn bộ dữ liệu này và mã giao diện HTML/JS vào file [visualize_labels.html](file:///c:/Users/loiha/Videos/dfghtraingliner/data_test/visualize_labels.html).
+  - **`main()`**: Đọc dữ liệu từ `data_xin_1000_dong_gold_backup.json`, tiền xử lý, tính toán thống kê tổng số thực thể và phân phối các loại nhãn, sau đó ghi toàn bộ dữ liệu này và mã giao diện HTML/JS vào file [visualize_labels.html](file:///d:/dfghtraingliner/data_test/visualize_labels.html).
 
 ---
 

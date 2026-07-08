@@ -1,0 +1,100 @@
+# ============================================================
+# CONFIG BENCHMARK — NHÓM 4: EMBEDDING + MLP HEAD
+# Chạy trên Tab Kaggle 4 (hoặc local, rất nhanh)
+#
+# Lệnh chạy:
+#   python benchmark_classifier_embed.py --config config_benchmark_embed.yaml
+#
+# Yêu cầu thư viện thêm:
+#   pip install sentence-transformers
+#
+# Phương pháp:
+#   1. Encoder bị FROZEN hoàn toàn (không gradient, không train)
+#   2. Forward pass toàn bộ dataset → lấy embedding vector (mean pool)
+#   3. Train 1 MLP head nhỏ (2 layer) trên các embedding vector đó
+#   → Rất nhanh vì bước encode chỉ chạy 1 lần
+#
+# Các model:
+#   - LaBSE                 : 100+ ngôn ngữ, SOTA sentence embedding
+#   - multilingual-e5-base  : Embedding đa ngôn ngữ mạnh, dùng instruction prefix
+#   - vietnamese-sbert      : SBERT fine-tuned riêng tiếng Việt
+# ============================================================
+
+run:
+  train_gliner: false
+  train_classifier: false
+  run_benchmark: false
+  run_benchmark_gliner: false
+  run_benchmark_embed: true      # flag riêng cho nhóm này
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  dataset_path: "../cleaned_dataset.json"
+  val_ratio: 0.2
+  max_samples: null
+
+# ============================================================
+# BENCHMARK EMBED CONFIG
+# ============================================================
+benchmark_embed:
+  output_dir: "./outputs/benchmark_embed"
+
+  # Truncation cho văn bản trước khi encode
+  max_length: 512
+  truncation_strategy: "head+tail"
+
+  # MLP Classifier Head config
+  mlp_hidden_dim: 256    # Số neurons lớp ẩn của MLP head
+  mlp_dropout: 0.2       # Dropout trong MLP head
+  mlp_epochs: 50         # Số epoch train MLP head (nhanh vì không train encoder)
+  mlp_lr: 1.0e-3         # LR cho MLP head (cao hơn nhiều vì train from scratch)
+  mlp_batch_size: 256    # Batch lớn vì chỉ train MLP
+
+  # Với multilingual-e5, cần thêm instruction prefix vào query
+  e5_query_prefix: "query: "    # Dùng cho multilingual-e5 khi encode JD
+
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "LEAD_PLUS"
+
+  models:
+    # ----------------------------------------------------------
+    # LaBSE (Language-agnostic BERT Sentence Embedding)
+    # Params: ~471M
+    # Ưu: 100+ ngôn ngữ, embedding rất mạnh cho câu đa ngôn ngữ
+    # Paper: "Language-agnostic BERT Sentence Embedding" (Feng et al. 2022)
+    # ----------------------------------------------------------
+    - name: "LaBSE"
+      model_name: "sentence-transformers/LaBSE"
+      batch_size: 32     # Batch size khi encode (không train, chỉ inference)
+      enabled: true
+
+    # ----------------------------------------------------------
+    # Multilingual-E5-base
+    # Params: ~278M
+    # Ưu: SOTA sentence embedding đa ngôn ngữ, cần dùng prefix "query: "
+    # Paper: "Multilingual E5 Text Embeddings" (Wang et al. 2024)
+    # ----------------------------------------------------------
+    - name: "multilingual-E5-base"
+      model_name: "intfloat/multilingual-e5-base"
+      batch_size: 64     # Nhẹ hơn LaBSE nên batch to hơn
+      use_e5_prefix: true   # Thêm "query: " prefix vào text khi encode
+      enabled: true
+
+    # ----------------------------------------------------------
+    # Vietnamese SBERT
+    # Params: ~135M (dựa trên PhoBERT-base)
+    # Ưu: Fine-tuned riêng cho tiếng Việt với sentence similarity task
+    # Phù hợp: Khi muốn embedding cụ thể cho tiếng Việt
+    # ----------------------------------------------------------
+    - name: "vietnamese-SBERT"
+      model_name: "keepitreal/vietnamese-sbert"
+      batch_size: 64
+      enabled: true

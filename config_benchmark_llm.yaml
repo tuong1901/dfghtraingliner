@@ -1,0 +1,121 @@
+# ============================================================
+# CONFIG BENCHMARK — NHÓM 3: SMALL LLM + LoRA
+# Chạy trên Tab Kaggle 3
+#
+# Lệnh chạy:
+#   python benchmark_classifier_llm.py --config config_benchmark_llm.yaml
+#
+# Yêu cầu thư viện thêm:
+#   pip install peft bitsandbytes accelerate
+#
+# Các model:
+#   - Qwen2.5-0.5B-Instruct : Nhỏ nhất, nhanh nhất, chạy tốt T4
+#   - Qwen2.5-1.5B-Instruct : Cân bằng tốt chất lượng/tốc độ
+#   - Gemma-2-2B-it         : Mạnh hơn Qwen 1.5B (cần accept license HF)
+# ============================================================
+
+run:
+  train_gliner: false
+  train_classifier: false
+  run_benchmark: false
+  run_benchmark_gliner: false
+  run_benchmark_llm: true        # flag riêng cho nhóm này
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  dataset_path: "../cleaned_dataset.json"
+  val_ratio: 0.2
+  max_samples: null
+
+# ============================================================
+# BENCHMARK LLM CONFIG
+# ============================================================
+benchmark_llm:
+  output_dir: "./outputs/benchmark_llm"
+
+  # Training config chung
+  num_epochs: 3          # LLM converge nhanh hơn, 3 epoch đủ
+  max_length: 512        # Max context length khi tokenize JD
+  logging_steps: 50
+  lambda_penalty: 0.0    # Tắt ordinal loss với LLM (dùng CE đơn giản)
+
+  # LoRA config chung (các model có thể override)
+  lora_r: 16             # Rank của LoRA adapter (16 = cân bằng tốt)
+  lora_alpha: 32         # Alpha scaling (thường = 2*r)
+  lora_dropout: 0.05
+  lora_target_modules:   # Các lớp attention sẽ thêm LoRA adapter
+    - "q_proj"
+    - "v_proj"
+    - "k_proj"
+    - "o_proj"
+
+  # Quantization (4-bit để tiết kiệm VRAM)
+  use_4bit: true         # Bật 4-bit quantization (bitsandbytes)
+  bnb_4bit_compute_dtype: "float16"
+
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "LEAD_PLUS"
+
+  models:
+    # ----------------------------------------------------------
+    # Qwen2.5-0.5B-Instruct
+    # Params: ~494M (0.5B)
+    # Ưu: Nhỏ nhất, nhanh nhất, fit tốt T4 16GB kể cả không 4-bit
+    # Phù hợp: Benchmark nhanh, chạy nhiều epoch hơn
+    # ----------------------------------------------------------
+    - name: "Qwen2.5-0.5B"
+      model_name: "Qwen/Qwen2.5-0.5B-Instruct"
+      train_batch_size: 8
+      eval_batch_size: 16
+      learning_rate: 2.0e-4       # LLM LoRA cần LR cao hơn BERT fine-tune
+      weight_decay: 0.01
+      warmup_ratio: 0.05
+      use_4bit: false             # Model nhỏ, không cần 4-bit
+      enabled: true
+
+    # ----------------------------------------------------------
+    # Qwen2.5-1.5B-Instruct
+    # Params: ~1.54B
+    # Ưu: Cân bằng tốt giữa chất lượng và tốc độ, hỗ trợ tiếng Việt khá
+    # Note: Cần 4-bit để fit T4 16GB thoải mái
+    # ----------------------------------------------------------
+    - name: "Qwen2.5-1.5B"
+      model_name: "Qwen/Qwen2.5-1.5B-Instruct"
+      train_batch_size: 4
+      eval_batch_size: 8
+      learning_rate: 1.5e-4
+      weight_decay: 0.01
+      warmup_ratio: 0.05
+      use_4bit: true
+      enabled: true
+
+    # ----------------------------------------------------------
+    # Gemma-2-2B-it
+    # Params: ~2B
+    # Ưu: Thường mạnh hơn Qwen 1.5B trên reasoning tasks
+    # NOTE: Cần accept license tại https://huggingface.co/google/gemma-2-2b-it
+    # NOTE: Cần HF_TOKEN được set trong Kaggle Secrets
+    # ----------------------------------------------------------
+    - name: "Gemma-2-2B"
+      model_name: "google/gemma-2-2b-it"
+      train_batch_size: 4
+      eval_batch_size: 8
+      learning_rate: 1.0e-4
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      use_4bit: true
+      lora_target_modules:       # Gemma dùng tên layer khác
+        - "q_proj"
+        - "v_proj"
+        - "k_proj"
+        - "o_proj"
+        - "gate_proj"
+      enabled: true              # Đặt false nếu chưa accept license Gemma

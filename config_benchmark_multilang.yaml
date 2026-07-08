@@ -1,0 +1,93 @@
+# ============================================================
+# CONFIG BENCHMARK — NHÓM 1: MULTILINGUAL ENCODER
+# Chạy trên Tab Kaggle 1
+#
+# Lệnh chạy:
+#   python benchmark_classifier.py --config config_benchmark_multilang.yaml
+#
+# Các model:
+#   - XLM-RoBERTa-base      : Đa ngôn ngữ mạnh nhất cùng size
+#   - mDeBERTa-v3-base      : DeBERTa đa ngôn ngữ, thường tốt hơn XLM-R
+#   - DistilBERT-multilingual: Baseline nhanh cho so sánh chi phí/tốc độ
+# ============================================================
+
+run:
+  train_gliner: false
+  train_classifier: false
+  run_benchmark: true
+  run_benchmark_gliner: false
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  dataset_path: "../cleaned_dataset.json"
+  val_ratio: 0.2
+  max_samples: null
+
+# ============================================================
+# BENCHMARK CONFIG — MULTILINGUAL ENCODERS
+# ============================================================
+benchmark:
+  output_dir: "./outputs/benchmark_multilang"
+
+  num_epochs: 4          # 4 epochs đủ cho fine-tune encoder đa ngôn ngữ
+  max_length: 512
+  truncation_strategy: "head+tail"
+  logging_steps: 100
+  lambda_penalty: 1.0    # Ordinal loss penalty (giống training chính)
+
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "LEAD_PLUS"
+
+  models:
+    # ----------------------------------------------------------
+    # XLM-RoBERTa-base
+    # Encoder: XLM-R (270M params)
+    # Ưu: Hỗ trợ 100+ ngôn ngữ, cân bằng tốt chất lượng/tốc độ
+    # Phù hợp: JD tiếng Việt lẫn tiếng Anh (lý tưởng nhất)
+    # ----------------------------------------------------------
+    - name: "XLM-RoBERTa-base"
+      model_name: "xlm-roberta-base"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 2.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    # ----------------------------------------------------------
+    # mDeBERTa-v3-base
+    # Encoder: DeBERTa-v3 đa ngôn ngữ (86M params effective)
+    # Ưu: Kiến trúc Disentangled Attention thường tốt hơn XLM-R
+    # Phù hợp: Khi cần accuracy cao nhất trong nhóm multilingual
+    # ----------------------------------------------------------
+    - name: "mDeBERTa-v3-base"
+      model_name: "microsoft/mdeberta-v3-base"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 1.5e-5       # DeBERTa thường cần LR nhỏ hơn
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    # ----------------------------------------------------------
+    # DistilBERT Multilingual Cased
+    # Encoder: Distilled mBERT (134M params)
+    # Ưu: Nhanh nhất trong nhóm, làm mốc baseline chi phí thấp
+    # Nhược: Chất lượng kém XLM-R/mDeBERTa nhưng nhanh hơn nhiều
+    # ----------------------------------------------------------
+    - name: "DistilBERT-multilingual"
+      model_name: "distilbert-base-multilingual-cased"
+      train_batch_size: 32        # Nhẹ hơn nên dùng batch lớn hơn
+      eval_batch_size: 64
+      learning_rate: 3.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true

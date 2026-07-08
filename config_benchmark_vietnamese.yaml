@@ -1,0 +1,98 @@
+# ============================================================
+# CONFIG BENCHMARK — NHÓM 2: VIETNAMESE ENCODER
+# Chạy trên Tab Kaggle 2
+#
+# Lệnh chạy:
+#   python benchmark_classifier.py --config config_benchmark_vietnamese.yaml
+#
+# Các model:
+#   - PhoBERT-base-v2  : SOTA tiếng Việt, cân bằng chất lượng/tốc độ
+#   - PhoBERT-large    : Mạnh hơn base nhưng chậm hơn, cần batch nhỏ hơn
+#   - ViSoBERT         : BERT tiếng Việt đặc biệt cho văn bản xã hội/tuyển dụng
+#
+# Lưu ý: Các model này sử dụng SentencePiece tokenizer,
+#         KHÔNG mất dấu tiếng Việt (khác với distilbert-base-uncased).
+# ============================================================
+
+run:
+  train_gliner: false
+  train_classifier: false
+  run_benchmark: true
+  run_benchmark_gliner: false
+  seed: 42
+
+# ============================================================
+# DATASET
+# ============================================================
+data:
+  dataset_path: "../cleaned_dataset.json"
+  val_ratio: 0.2
+  max_samples: null
+
+# ============================================================
+# BENCHMARK CONFIG — VIETNAMESE ENCODERS
+# ============================================================
+benchmark:
+  output_dir: "./outputs/benchmark_vietnamese"
+
+  num_epochs: 4          # 4 epochs cho fine-tune encoder tiếng Việt
+  max_length: 256        # PhoBERT max_position_embeddings = 258 (thực tế 256 + 2 special)
+  truncation_strategy: "head+tail"
+  logging_steps: 100
+  lambda_penalty: 1.0
+
+  level_labels:
+    - "INTERN"
+    - "FRESHER"
+    - "JUNIOR"
+    - "MIDDLE"
+    - "SENIOR"
+    - "LEAD_PLUS"
+
+  models:
+    # ----------------------------------------------------------
+    # PhoBERT-base-v2
+    # Encoder: RoBERTa-base trained on 145GB Vietnamese corpus
+    # Ưu: SOTA cho tiếng Việt đơn ngữ, SentencePiece giữ nguyên dấu
+    # Nhược: Yếu hơn khi JD có nhiều tiếng Anh (job title, tech stack)
+    # Note: max_position_embeddings=258 → max_length phải <= 256
+    # ----------------------------------------------------------
+    - name: "PhoBERT-base-v2"
+      model_name: "vinai/phobert-base-v2"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 2.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
+
+    # ----------------------------------------------------------
+    # PhoBERT-large
+    # Encoder: RoBERTa-large trained on Vietnamese corpus
+    # Ưu: Mạnh hơn base cho tiếng Việt thuần
+    # Nhược: Cần batch nhỏ hơn (8-12) do model lớn hơn
+    # Note: max_position_embeddings=258 → max_length phải <= 256
+    # ----------------------------------------------------------
+    - name: "PhoBERT-large"
+      model_name: "vinai/phobert-large"
+      train_batch_size: 8         # Giảm batch do model lớn hơn
+      eval_batch_size: 16
+      learning_rate: 1.5e-5       # LR nhỏ hơn cho model lớn
+      weight_decay: 0.01
+      warmup_ratio: 0.15          # Warmup dài hơn cho model lớn
+      enabled: true
+
+    # ----------------------------------------------------------
+    # ViSoBERT (Vietnamese Social BERT)
+    # Encoder: RoBERTa fine-tuned on Vietnamese social media + news
+    # Ưu: Tốt cho văn bản thông thường tiếng Việt, ngữ nghĩa tự nhiên hơn
+    # Phù hợp: JD tiếng Việt với ngôn ngữ gần gũi thực tế
+    # ----------------------------------------------------------
+    - name: "ViSoBERT"
+      model_name: "uitnlp/visobert"
+      train_batch_size: 16
+      eval_batch_size: 32
+      learning_rate: 2.0e-5
+      weight_decay: 0.01
+      warmup_ratio: 0.1
+      enabled: true
