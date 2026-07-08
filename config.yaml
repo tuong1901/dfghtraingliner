@@ -125,7 +125,7 @@ benchmark:
   output_dir: "./outputs/benchmark"
 
   # Số epoch cho mỗi model khi benchmark (thường ít hơn train đầy đủ)
-  num_epochs: 3
+  num_epochs: 6
   max_length: 512
   truncation_strategy: "head+tail"
   logging_steps: 100

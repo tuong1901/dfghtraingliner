@@ -32,7 +32,7 @@ data:
 benchmark:
   output_dir: "./outputs/benchmark_multilang"
 
-  num_epochs: 4          # 4 epochs đủ cho fine-tune encoder đa ngôn ngữ
+  num_epochs: 6          # 6 epochs đủ cho fine-tune encoder đa ngôn ngữ
   max_length: 512
   truncation_strategy: "head+tail"
   logging_steps: 100

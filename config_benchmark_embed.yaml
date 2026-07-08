@@ -49,7 +49,7 @@ benchmark_embed:
   # MLP Classifier Head config
   mlp_hidden_dim: 256    # Số neurons lớp ẩn của MLP head
   mlp_dropout: 0.2       # Dropout trong MLP head
-  mlp_epochs: 50         # Số epoch train MLP head (nhanh vì không train encoder)
+  mlp_epochs: 100        # Số epoch train MLP head (nhanh vì không train encoder)
   mlp_lr: 1.0e-3         # LR cho MLP head (cao hơn nhiều vì train from scratch)
   mlp_batch_size: 256    # Batch lớn vì chỉ train MLP
 

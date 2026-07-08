@@ -37,7 +37,7 @@ benchmark_llm:
   output_dir: "./outputs/benchmark_llm"
 
   # Training config chung
-  num_epochs: 3          # LLM converge nhanh hơn, 3 epoch đủ
+  num_epochs: 5          # LLM converge nhanh hơn, 5 epoch đủ
   max_length: 512        # Max context length khi tokenize JD
   logging_steps: 50
   lambda_penalty: 0.0    # Tắt ordinal loss với LLM (dùng CE đơn giản)

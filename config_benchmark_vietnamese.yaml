@@ -35,7 +35,7 @@ data:
 benchmark:
   output_dir: "./outputs/benchmark_vietnamese"
 
-  num_epochs: 4          # 4 epochs cho fine-tune encoder tiếng Việt
+  num_epochs: 6          # 6 epochs cho fine-tune encoder tiếng Việt
   max_length: 256        # PhoBERT max_position_embeddings = 258 (thực tế 256 + 2 special)
   truncation_strategy: "head+tail"
   logging_steps: 100
