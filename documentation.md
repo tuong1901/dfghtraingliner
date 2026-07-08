@@ -147,9 +147,9 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
 ---
 
 ### `benchmark_classifier.py`
-**Script so sánh nhiều BERT-family model** để chọn Classifier tốt nhất.
+**Script so sánh nhiều BERT-family Encoder-only model** (Nhóm BERT tiếng Anh). Dùng kèm config.yaml.
 
-**Các model benchmark (mặc định):**
+**Các model benchmark (cấu hình trong config.yaml):**
 | Model | HuggingFace ID | Đặc điểm |
 |-------|----------------|----------|
 | BERT-base | `bert-base-uncased` | Baseline chuẩn |
@@ -157,13 +157,128 @@ File cấu hình phục vụ chế độ chạy thử nghiệm nhanh (Dry-run) t
 | RoBERTa-base | `roberta-base` | Thường tốt hơn BERT |
 | DeBERTa-v3-small | `microsoft/deberta-v3-small` | SOTA nhỏ |
 | ELECTRA-small | `google/electra-small-discriminator` | Rất nhỏ, nhanh |
-| PhoBERT-base-v2 | `vinai/phobert-base-v2` | Vietnamese (tắt mặc định) |
+| FinBERT | `ProsusAI/finbert` | Fine-tuned tài chính |
+
+Script này cũng dùng được cho **Nhóm 1 (Multilingual)** và **Nhóm 2 (Vietnamese)** bằng cách truyền file config riêng:
+```bash
+python benchmark_classifier.py --config config_benchmark_multilang.yaml
+python benchmark_classifier.py --config config_benchmark_vietnamese.yaml
+```
 
 **Hàm chính:**
-- **`run_single_benchmark(model_cfg, ...)`**: Nhận tập train_data, val_data (cho training & early stopping) và test_data (cho đánh giá cuối). Huấn luyện mô hình, lưu checkpoint tốt nhất dựa trên val_data, sau đó load checkpoint tốt nhất để đánh giá trên tập test_data độc lập và trả về kết quả benchmark → `{accuracy, f1_weighted, test_loss, train_time, n_params, status}`.
-- **`run_all_benchmarks(cfg)`**: Load dataset và split phần validation thành 50% validation / 50% test độc lập. Chạy tuần tự tất cả model enabled và tổng hợp kết quả.
-- **`print_results_table(results)`**: In bảng ASCII so sánh kết quả trên tập Test độc lập và highlight winner.
-- **`save_results(results, output_dir)`**: Lưu `benchmark_results.csv` + `benchmark_results.txt` với các trường test metrics.
+- **`run_single_benchmark(model_cfg, ...)`**: Train + evaluate 1 model, lưu checkpoint tốt nhất, đánh giá trên tập Test độc lập → `{accuracy, f1_weighted, test_loss, train_time, n_params, status}`.
+- **`run_all_benchmarks(cfg)`**: Load dataset và split val 50%/50% → val/test. Chạy tuần tự tất cả model enabled.
+- **`print_results_table(results)`**: In bảng ASCII so sánh, highlight winner.
+- **`save_results(results, output_dir)`**: Lưu `benchmark_results.csv` + `benchmark_results.txt`.
+
+---
+
+### `config_benchmark_multilang.yaml` [NEW]
+**Config cho Nhóm 1 — Multilingual Encoder.** Chạy trên Tab Kaggle 1.
+
+Lệnh chạy: `python benchmark_classifier.py --config config_benchmark_multilang.yaml`
+
+| Model | HuggingFace ID | Đặc điểm |
+|-------|----------------|----------|
+| XLM-RoBERTa-base | `xlm-roberta-base` | Đa ngôn ngữ 100+, cân bằng tốt |
+| mDeBERTa-v3-base | `microsoft/mdeberta-v3-base` | DeBERTa đa ngôn ngữ, thường tốt hơn XLM-R |
+| DistilBERT-multilingual | `distilbert-base-multilingual-cased` | Baseline nhanh để so sánh tốc độ |
+
+**Output:** `./outputs/benchmark_multilang/`
+
+---
+
+### `config_benchmark_vietnamese.yaml` [NEW]
+**Config cho Nhóm 2 — Vietnamese Encoder.** Chạy trên Tab Kaggle 2.
+
+Lệnh chạy: `python benchmark_classifier.py --config config_benchmark_vietnamese.yaml`
+
+| Model | HuggingFace ID | Đặc điểm |
+|-------|----------------|----------|
+| PhoBERT-base-v2 | `vinai/phobert-base-v2` | SOTA tiếng Việt, max_length=256 |
+| PhoBERT-large | `vinai/phobert-large` | Mạnh hơn base, cần batch nhỏ hơn |
+| ViSoBERT | `uitnlp/visobert` | BERT fine-tuned tiếng Việt xã hội/tuyển dụng |
+
+**Lưu ý:** `max_length: 256` (PhoBERT giới hạn 258 positions)
+
+**Output:** `./outputs/benchmark_vietnamese/`
+
+---
+
+### `benchmark_classifier_llm.py` [NEW]
+**Script Nhóm 3 — Small LLM + LoRA fine-tuning.** Kiến trúc hoàn toàn khác BERT.
+
+Lệnh chạy: `python benchmark_classifier_llm.py --config config_benchmark_llm.yaml`
+
+Yêu cầu thêm: `pip install peft bitsandbytes accelerate`
+
+**Phương pháp:** Load LLM (Causal LM) → thêm LoRA adapter (PEFT) → thêm Linear classifier head phía trên embedding token cuối → train chỉ LoRA params + head (~1-3% tổng params)
+
+**Class/Hàm chính:**
+- **`LLMJobDataset`** (class): Dataset cho LLM, dùng **left-padding** (khác BERT dùng right-padding). Cắt ghép head+tail trước EOS token.
+- **`llm_collate_fn(batch, tokenizer)`**: Collate với left-padding đảm bảo token cuối luôn là token thực.
+- **`build_lora_model(model_name, num_labels, ...)`**: Load LLM + 4-bit quant (BitsAndBytes) + LoRA adapter + `LLMClassifier` wrapper. Trả về model, tokenizer, n_trainable_params.
+- **`LLMClassifier`** (inner class): Wrapper lấy hidden state token cuối (EOS) → 2-layer MLP → logits.
+- **`evaluate_llm(model, data_loader, device, ...)`**: Evaluate trên val/test set, tính Accuracy + F1.
+- **`run_single_llm_benchmark(...)`**: Pipeline đầy đủ cho 1 LLM (build → train → eval val → eval test).
+- **`run_all_llm_benchmarks(cfg)`**: Duyệt toàn bộ model enabled trong config.
+- **`print_results_table(results)`**: Bảng so sánh kết quả LLM.
+- **`save_results(results, output_dir)`**: Lưu `benchmark_llm_results.csv` + `.txt`.
+
+**Output:** `./outputs/benchmark_llm/`
+
+---
+
+### `config_benchmark_llm.yaml` [NEW]
+**Config cho Nhóm 3 — Small LLM + LoRA.** Chạy trên Tab Kaggle 3.
+
+| Model | HuggingFace ID | Params | Đặc điểm |
+|-------|----------------|--------|----------|
+| Qwen2.5-0.5B | `Qwen/Qwen2.5-0.5B-Instruct` | 0.5B | Nhỏ nhất, nhanh nhất |
+| Qwen2.5-1.5B | `Qwen/Qwen2.5-1.5B-Instruct` | 1.5B | Cân bằng chất lượng/tốc độ |
+| Gemma-2-2B | `google/gemma-2-2b-it` | 2B | Mạnh nhất nhóm, cần accept license |
+
+Config LoRA: `r=16, alpha=32, targets=[q/v/k/o_proj]`. 4-bit quant bật mặc định cho 1.5B và 2B.
+
+**Output:** `./outputs/benchmark_llm/`
+
+---
+
+### `benchmark_classifier_embed.py` [NEW]
+**Script Nhóm 4 — Frozen Embedding + MLP Classifier Head.**
+
+Lệnh chạy: `python benchmark_classifier_embed.py --config config_benchmark_embed.yaml`
+
+Yêu cầu thêm: `pip install sentence-transformers`
+
+**Phương pháp:** Encoder FROZEN hoàn toàn → encode dataset 1 lần duy nhất → train MLP 2 lớp nhỏ trên embedding vectors. Nhanh nhất trong tất cả 4 nhóm.
+
+**Class/Hàm chính:**
+- **`encode_dataset(model_name, texts, ...)`**: Load SentenceTransformer, encode toàn bộ texts → numpy array `[N, embed_dim]`. Giải phóng GPU sau khi encode.
+- **`MLPClassifierHead`** (class): MLP 2 lớp (Linear → LayerNorm → GELU → Dropout) × 2. Train bằng AdamW + CosineAnnealing. Lưu best checkpoint theo val F1.
+  - **`fit(X, y, X_val, y_val)`**: Train MLP trên embedding arrays.
+  - **`score(X, y)`**: Evaluate → `{accuracy, f1_weighted}`.
+- **`run_single_embed_benchmark(...)`**: 3 bước: encode dataset → train MLP → eval test. Trả về dict kết quả.
+- **`run_all_embed_benchmarks(cfg)`**: Duyệt toàn bộ model enabled.
+- **`print_results_table(results)`**: Bảng so sánh (thêm cột `embed_dim`).
+- **`save_results(results, output_dir)`**: Lưu `benchmark_embed_results.csv` + `.txt`.
+
+**Output:** `./outputs/benchmark_embed/`
+
+---
+
+### `config_benchmark_embed.yaml` [NEW]
+**Config cho Nhóm 4 — Embedding + MLP Head.**
+
+| Model | HuggingFace ID | Dim | Đặc điểm |
+|-------|----------------|-----|----------|
+| LaBSE | `sentence-transformers/LaBSE` | 768 | 100+ ngôn ngữ, SOTA sentence embedding |
+| multilingual-E5-base | `intfloat/multilingual-e5-base` | 768 | SOTA đa ngôn ngữ, dùng prefix "query: " |
+| vietnamese-SBERT | `keepitreal/vietnamese-sbert` | 768 | SBERT fine-tuned tiếng Việt |
+
+MLP config: `hidden_dim=256, dropout=0.2, epochs=50, lr=1e-3`.
+
+**Output:** `./outputs/benchmark_embed/`
 
 ---
 

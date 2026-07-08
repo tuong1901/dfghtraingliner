@@ -65,22 +65,29 @@ def _bar_labels(ax, bars, fmt="{:.3f}", dy=0.005):
 #    Nguồn: outputs/benmark_glinner.txt
 # ---------------------------------------------------------------------------
 def fig_gliner_benchmark():
-    models = ["Small-v2.5", "Medium-v2.5", "Medium-v2.1", "Small-v2.1"]
-    f1 =   [0.7754, 0.6795, 0.6784, 0.6657]
-    ndcg = [0.9106, 0.8767, 0.8798, 0.8683]
+    models = [
+        "Small-v2.5\n(Optimized)",
+        "Medium-v2.5",
+        "Medium-v2.1",
+        "Small-v2.5\n(Base FT)",
+        "Multi",
+        "Small-v2.1"
+    ]
+    f1 =   [0.8475, 0.8381, 0.8346, 0.8295, 0.8249, 0.7713]
+    ndcg = [0.9101, 0.9060, 0.9041, 0.9023, 0.9035, 0.8526]
 
     x = np.arange(len(models))
     w = 0.38
-    fig, ax = plt.subplots(figsize=(7.5, 4.2))
+    fig, ax = plt.subplots(figsize=(8.5, 4.4))
     b1 = ax.bar(x - w/2, f1, w, label="Overall F1", color=BLUE)
     b2 = ax.bar(x + w/2, ndcg, w, label="nDCG@10", color=GREEN)
     _bar_labels(ax, b1); _bar_labels(ax, b2)
-    ax.set_xticks(x); ax.set_xticklabels(models)
-    ax.set_ylabel("Score"); ax.set_ylim(0, 1.0)
+    ax.set_xticks(x); ax.set_xticklabels(models, fontsize=9)
+    ax.set_ylabel("Score"); ax.set_ylim(0, 1.05)
     ax.set_title("GLiNER variants — Post-fine-tuning (in-distribution test)")
     ax.legend(loc="lower right")
     # đánh dấu model được chọn
-    ax.annotate("Selected", xy=(0, 0.7754), xytext=(0.1, 0.55),
+    ax.annotate("Selected", xy=(0, 0.8475), xytext=(0.4, 0.65),
                 fontsize=9, color=RED,
                 arrowprops=dict(arrowstyle="->", color=RED))
     _save(fig, "fig_gliner_benchmark.png")
@@ -92,7 +99,7 @@ def fig_gliner_benchmark():
 # ---------------------------------------------------------------------------
 def fig_generalization_gap():
     cats = ["SKILL", "EXPERIENCE", "Overall"]
-    indist =      [0.8166, 0.9511, 0.8384]
+    indist =      [0.8409, 0.9571, 0.8475]
     independent = [0.5792, 0.6992, 0.5904]
 
     x = np.arange(len(cats)); w = 0.38
@@ -221,7 +228,7 @@ def fig_level_confusion():
 def fig_baseline_vs_postft():
     metrics = ["Overall F1", "nDCG@10", "SKILL F1", "EXP F1"]
     baseline = [0.1925, 0.3435, 0.2093, 0.0076]
-    postft =   [0.7754, 0.9106, 0.7686, 0.8904]
+    postft =   [0.8475, 0.9101, 0.8409, 0.9571]
 
     x = np.arange(len(metrics)); w = 0.38
     fig, ax = plt.subplots(figsize=(7.5, 4.2))
