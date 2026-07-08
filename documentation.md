@@ -227,11 +227,11 @@ Yêu cầu thêm: `pip install peft bitsandbytes accelerate`
 - **`llm_collate_fn(batch, tokenizer)`**: Collate với left-padding đảm bảo token cuối luôn là token thực.
 - **`build_lora_model(model_name, num_labels, ...)`**: Load LLM + 4-bit quant (BitsAndBytes) + LoRA adapter + `LLMClassifier` wrapper. Trả về model, tokenizer, n_trainable_params.
 - **`LLMClassifier`** (inner class): Wrapper lấy hidden state token cuối (EOS) → 2-layer MLP → logits.
-- **`evaluate_llm(model, data_loader, device, ...)`**: Evaluate trên val/test set, tính Accuracy + F1.
-- **`run_single_llm_benchmark(...)`**: Pipeline đầy đủ cho 1 LLM (build → train → eval val → eval test).
+- **`evaluate_llm(model, data_loader, device, level_labels, loss_fct, verbose)`**: Đánh giá toàn diện mô hình LLM, trả về aggregate metrics (Acc, F1w, F1m, MCC, Kappa, Top-2), per-class report, và Confusion Matrix.
+- **`run_single_llm_benchmark(...)`**: Pipeline đầy đủ cho 1 LLM (build → train với early stopping và ghi history → eval test → lưu test_report.txt, confusion_matrix.csv, confusion_matrix_normalized.csv, training_history.json).
 - **`run_all_llm_benchmarks(cfg)`**: Duyệt toàn bộ model enabled trong config.
-- **`print_results_table(results)`**: Bảng so sánh kết quả LLM.
-- **`save_results(results, output_dir)`**: Lưu `benchmark_llm_results.csv` + `.txt`.
+- **`print_results_table(results)`**: In bảng so sánh aggregate, per-class F1, và bảng chi tiết Precision/Recall/F1/Support từng class cho mọi model LLM.
+- **`save_results(results, output_dir)`**: Lưu kết quả ra `benchmark_llm_results.csv` + `.txt` đầy đủ bảng biểu so sánh.
 
 **Output:** `./outputs/benchmark_llm/`
 
@@ -263,10 +263,11 @@ Yêu cầu thêm: `pip install sentence-transformers`
 
 **Class/Hàm chính:**
 - **`encode_dataset(model_name, texts, ...)`**: Load SentenceTransformer, encode toàn bộ texts → numpy array `[N, embed_dim]`. Giải phóng GPU sau khi encode.
-- **`MLPClassifierHead`** (class): MLP 2 lớp (Linear → LayerNorm → GELU → Dropout) × 2. Train bằng AdamW + CosineAnnealing. Lưu best checkpoint theo val F1.
-  - **`fit(X, y, X_val, y_val)`**: Train MLP trên embedding arrays.
-  - **`score(X, y)`**: Evaluate → `{accuracy, f1_weighted}`.
-- **`run_single_embed_benchmark(...)`**: 3 bước: encode dataset → train MLP → eval test. Trả về dict kết quả.
+- **`MLPClassifierHead`** (class): MLP 2 lớp (Linear → LayerNorm → GELU → Dropout) × 2. Train bằng AdamW + CosineAnnealing. Hỗ trợ checkpoint theo val F1.
+  - **`fit(X, y, level_labels, X_val, y_val, early_stopping_patience)`**: Train MLP trên embedding arrays, tích hợp early stopping và trả về training history.
+  - **`score(X, y, level_labels, loss_fct, verbose)`**: Evaluate và tính toán đầy đủ metrics (Acc, F1w, F1m, MCC, Kappa, Top-2, per-class, confusion matrix).
+- **`evaluate_embed(model, X, y, device, level_labels, loss_fct, verbose, batch_size)`**: Hàm đánh giá phụ trợ cho score.
+- **`run_single_embed_benchmark(...)`**: 3 bước: encode dataset → train MLP với early stopping và ghi history → eval test → lưu test_report.txt, confusion_matrix.csv, confusion_matrix_normalized.csv, training_history.json.
 - **`run_all_embed_benchmarks(cfg)`**: Duyệt toàn bộ model enabled.
 - **`print_results_table(results)`**: Bảng so sánh (thêm cột `embed_dim`).
 - **`save_results(results, output_dir)`**: Lưu `benchmark_embed_results.csv` + `.txt`.

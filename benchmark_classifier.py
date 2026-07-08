@@ -651,7 +651,7 @@ def print_results_table(results: List[Dict[str, Any]]):
     """
     In bảng so sánh kết quả benchmark dạng ASCII table đẹp.
     Bao gồm: Accuracy, F1 (weighted), F1 (macro), MCC, Kappa, Top-2 Acc.
-    Theo sau là per-class F1 summary.
+    Theo sau là bảng so sánh F1 từng class và bảng chi tiết Precision/Recall/F1/Support từng class.
     """
     print_banner("KẾT QUẢ BENCHMARK — TỔNG HỢP")
 
@@ -712,12 +712,12 @@ def print_results_table(results: List[Dict[str, Any]]):
     success_results = [r for r in results if r["status"] == "SUCCESS"]
 
     if success_results and any(r.get("per_class") for r in success_results):
-        print("\n=== Per-class F1 trên Test Set ===")
         all_classes = sorted({
             cls for r in success_results
             for cls in r.get("per_class", {}).keys()
         }, key=lambda c: level_labels_order.index(c) if c in level_labels_order else 99)
 
+        print("\n=== Per-class F1 trên Test Set ===")
         pc_widths = {"name": 18}
         for cls in all_classes:
             pc_widths[cls] = max(len(cls), 8)
@@ -746,6 +746,42 @@ def print_results_table(results: List[Dict[str, Any]]):
                 row_vals[cls] = f"{cls_info.get('f1', 0):.4f}" if cls_info else "N/A"
             print(pc_row(row_vals))
         print(pc_sep())
+
+        # Bảng 3: Chi tiết metrics từng class cho mọi model
+        print("\n=== Chi tiết metrics từng Class của các mô hình (Test Set) ===")
+        pc_det_widths = {"model": 20, "class": 12, "precision": 10, "recall": 10, "f1": 10, "support": 8}
+        def pcd_sep():
+            return "+" + "+".join("-" * (w + 2) for w in pc_det_widths.values()) + "+"
+        def pcd_row(vals):
+            cells = []
+            for key, w in pc_det_widths.items():
+                v = str(vals.get(key, "N/A"))
+                cells.append(f" {v[:w]:<{w}} ")
+            return "|" + "|".join(cells) + "|"
+
+        pcd_headers = {"model": "Model Name", "class": "Class", "precision": "Precision", "recall": "Recall", "f1": "F1-Score", "support": "Support"}
+        print(pcd_sep())
+        print(pcd_row(pcd_headers))
+        print(pcd_sep())
+        for r in sorted_results:
+            if r["status"] != "SUCCESS":
+                continue
+            first_row = True
+            for cls in all_classes:
+                cls_info = r.get("per_class", {}).get(cls, {})
+                if not cls_info:
+                    continue
+                row_vals = {
+                    "model": r["name"] if first_row else "",
+                    "class": cls,
+                    "precision": f"{cls_info.get('precision', 0):.4f}",
+                    "recall": f"{cls_info.get('recall', 0):.4f}",
+                    "f1": f"{cls_info.get('f1', 0):.4f}",
+                    "support": str(cls_info.get('support', 0)),
+                }
+                print(pcd_row(row_vals))
+                first_row = False
+            print(pcd_sep())
 
     # Winner
     if success_results:
@@ -867,6 +903,30 @@ def save_results(results: List[Dict[str, Any]], output_dir: str):
                 row_str += f" {cls_f1:>12.4f}" if cls_f1 is not None else f" {'N/A':>12}"
             lines.append(row_str)
         lines.append("=" * (20 + 13 * len(all_classes)))
+
+        # Chi tiết Precision/Recall/F1/Support từng class cho mọi model
+        lines.append("\n=== Chi tiết metrics từng Class của các mô hình (Test Set) ===")
+        header_pcd = f"{'Model':<20} {'Class':<12} {'Precision':>10} {'Recall':>10} {'F1-Score':>10} {'Support':>8}"
+        lines.append(header_pcd)
+        lines.append("-" * 78)
+        for r in sorted_r:
+            if r["status"] != "SUCCESS":
+                continue
+            first_row = True
+            for cls in all_classes:
+                cls_info = r.get("per_class", {}).get(cls, {})
+                if not cls_info:
+                    continue
+                lines.append(
+                    f"{r['name'] if first_row else '':<20} "
+                    f"{cls:<12} "
+                    f"{cls_info.get('precision', 0):>10.4f} "
+                    f"{cls_info.get('recall', 0):>10.4f} "
+                    f"{cls_info.get('f1', 0):>10.4f} "
+                    f"{cls_info.get('support', 0):>8}"
+                )
+                first_row = False
+            lines.append("-" * 78)
 
     # Winner summary
     if success_r:
