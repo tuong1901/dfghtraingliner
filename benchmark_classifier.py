@@ -42,6 +42,18 @@ from typing import List, Dict, Any, Optional
 
 import numpy as np
 
+# Kiểm tra các thư viện cơ bản trước khi chạy để hướng dẫn người dùng
+try:
+    import transformers
+    import torch
+    import sklearn
+except ImportError as e:
+    missing_module = e.name if hasattr(e, 'name') else str(e)
+    print(f"\n[LỖI THIẾU THƯ VIỆN] Không thể import thư viện cần thiết: {e}")
+    print("Vui lòng cài đặt các thư viện cần thiết bằng lệnh sau trên Kaggle hoặc Terminal:")
+    print("  !pip install transformers torch scikit-learn")
+    sys.exit(1)
+
 # Thêm thư mục hiện tại vào sys.path
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import (

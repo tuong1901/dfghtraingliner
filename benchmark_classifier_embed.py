@@ -41,6 +41,18 @@ from typing import List, Dict, Any
 
 import numpy as np
 
+# Kiểm tra thư viện sentence-transformers trước khi chạy để hướng dẫn người dùng
+try:
+    import sentence_transformers
+    import sklearn
+    import torch
+except ImportError as e:
+    missing_module = e.name if hasattr(e, 'name') else str(e)
+    print(f"\n[LỖI THIẾU THƯ VIỆN] Không thể import thư viện cần thiết: {e}")
+    print("Vui lòng cài đặt các thư viện cần thiết bằng lệnh sau trên Kaggle hoặc Terminal:")
+    print("  !pip install sentence-transformers scikit-learn torch")
+    sys.exit(1)
+
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import (
     load_config, load_dataset, set_seed,
@@ -833,11 +845,14 @@ def print_results_table(results: List[Dict[str, Any]]):
         print(f"\n🏆 Best F1 (weighted): {best['name']} ({best['f1_weighted']:.4f})")
         print(f"🥇 Best F1 (macro)   : {best_macro['name']} ({best_macro['f1_macro']:.4f})")
         print(f"⚡ Fastest           : {fastest['name']} ({fastest['train_time']})")
-        
+
         print("\n=== Thư mục lưu trữ Checkpoint các mô hình (Best Checkpoints) ===")
         for r in sorted_results:
             if r["status"] == "SUCCESS":
                 print(f"  - {r['name']:<20} : {r.get('model_dir', 'N/A')}")
+
+        
+
 
 
 

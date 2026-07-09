@@ -39,6 +39,21 @@ from typing import List, Dict, Any, Optional
 
 import numpy as np
 
+# Kiểm tra các thư viện LoRA và Quantization trước khi chạy để hướng dẫn người dùng
+try:
+    import peft
+    import bitsandbytes
+    import accelerate
+    import transformers
+    import torch
+    import sklearn
+except ImportError as e:
+    missing_module = e.name if hasattr(e, 'name') else str(e)
+    print(f"\n[LỖI THIẾU THƯ VIỆN] Không thể import thư viện cần thiết cho LLM LoRA: {e}")
+    print("Vui lòng cài đặt các thư viện cần thiết bằng lệnh sau trên Kaggle hoặc Terminal:")
+    print("  !pip install peft bitsandbytes accelerate transformers torch scikit-learn")
+    sys.exit(1)
+
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import (
     load_config, load_dataset, set_seed,
